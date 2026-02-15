@@ -1,5 +1,6 @@
 import 'package:grpc/grpc.dart';
 import 'package:voosu/core/failures.dart';
+import 'package:voosu/core/grpc_channel_manager.dart';
 import 'package:voosu/core/grpc_error_handler.dart';
 import 'package:voosu/core/log/logs.dart';
 import 'package:voosu/data/mappers/user_mapper.dart';
@@ -15,13 +16,11 @@ abstract class ISearchRemoteDataSource {
 }
 
 class SearchRemoteDataSource implements ISearchRemoteDataSource {
-  SearchRemoteDataSource(ClientChannel channel) : _channel = channel;
+  final GrpcChannelManager _channelManager;
 
-  final ClientChannel _channel;
-  searchpb.SearchServiceClient? _clientHolder;
+  SearchRemoteDataSource(this._channelManager);
 
-  searchpb.SearchServiceClient get _client =>
-      _clientHolder ??= searchpb.SearchServiceClient(_channel);
+  searchpb.SearchServiceClient get _client => _channelManager.searchClient;
 
   @override
   Future<(List<User>, int)> searchUsers({

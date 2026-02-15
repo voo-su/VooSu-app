@@ -1,7 +1,6 @@
 import 'package:get_it/get_it.dart';
-import 'package:grpc/grpc.dart';
-import 'package:voosu/core/app_server_constants.dart';
-import 'package:voosu/core/log/logs.dart';
+import 'package:voosu/core/grpc_channel_manager.dart';
+import 'package:voosu/core/server_config.dart';
 import 'package:voosu/data/data_sources/remote/account_remote_datasource.dart';
 import 'package:voosu/data/data_sources/remote/chat_remote_datasource.dart';
 import 'package:voosu/data/data_sources/remote/search_remote_datasource.dart';
@@ -16,34 +15,28 @@ import 'package:voosu/domain/usecases/chat/get_chat_messages_usecase.dart';
 import 'package:voosu/domain/usecases/chat/get_pending_for_chat_usecase.dart';
 import 'package:voosu/domain/usecases/chat/remove_pending_message_usecase.dart';
 import 'package:voosu/domain/usecases/search/search_users_usecase.dart';
+import 'package:voosu/presentation/screens/projects/project_cubit.dart';
 
 final sl = GetIt.instance;
 
-void init() {
-  sl.registerLazySingleton<ClientChannel>(() {
-    Logs().d(
-      'gRPC: канал ${AppServerConstants.grpcHost}:${AppServerConstants.grpcPort}',
-    );
-    return ClientChannel(
-      AppServerConstants.grpcHost,
-      port: AppServerConstants.grpcPort,
-      options: const ChannelOptions(
-        credentials: ChannelCredentials.insecure(),
-        idleTimeout: Duration(seconds: 30),
-      ),
-    );
-  });
+Future<void> init() async {
+  sl.registerLazySingleton<ServerConfig>(() => ServerConfig());
+  await sl<ServerConfig>().init();
+
+  sl.registerLazySingleton<GrpcChannelManager>(
+    () => GrpcChannelManager(sl<ServerConfig>()),
+  );
 
   sl.registerLazySingleton<IAccountRemoteDataSource>(
-    () => AccountRemoteDataSource(sl<ClientChannel>()),
+    () => AccountRemoteDataSource(sl<GrpcChannelManager>()),
   );
 
   sl.registerLazySingleton<IChatRemoteDataSource>(
-    () => ChatRemoteDataSource(sl<ClientChannel>()),
+    () => ChatRemoteDataSource(sl<GrpcChannelManager>()),
   );
 
   sl.registerLazySingleton<ISearchRemoteDataSource>(
-    () => SearchRemoteDataSource(sl<ClientChannel>()),
+    () => SearchRemoteDataSource(sl<GrpcChannelManager>()),
   );
 
   sl.registerLazySingleton<AccountRepository>(() => AccountRepositoryImpl(sl()));
@@ -57,4 +50,8 @@ void init() {
   sl.registerFactory(() => DeleteChatMessagesUseCase(sl<IChatRemoteDataSource>()));
   sl.registerFactory(() => ClearChatHistoryUseCase(sl<IChatRemoteDataSource>()));
   sl.registerFactory(() => DeleteChatUseCase(sl<IChatRemoteDataSource>()));
+
+  sl.registerFactory(
+    () => ProjectCubit(sl<GrpcChannelManager>()),
+  );
 }

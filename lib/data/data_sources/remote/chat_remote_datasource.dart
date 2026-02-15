@@ -1,6 +1,7 @@
 import 'package:fixnum/fixnum.dart';
 import 'package:grpc/grpc.dart';
 import 'package:voosu/core/failures.dart';
+import 'package:voosu/core/grpc_channel_manager.dart';
 import 'package:voosu/core/grpc_error_handler.dart';
 import 'package:voosu/core/log/logs.dart';
 import 'package:voosu/data/mappers/chat_mapper.dart';
@@ -28,13 +29,11 @@ abstract class IChatRemoteDataSource {
 }
 
 class ChatRemoteDataSource implements IChatRemoteDataSource {
-  ChatRemoteDataSource(ClientChannel channel) : _channel = channel;
+  final GrpcChannelManager _channelManager;
 
-  final ClientChannel _channel;
-  chatpb.ChatServiceClient? _clientHolder;
+  ChatRemoteDataSource(this._channelManager);
 
-  chatpb.ChatServiceClient get _client =>
-      _clientHolder ??= chatpb.ChatServiceClient(_channel);
+  chatpb.ChatServiceClient get _client => _channelManager.chatClient;
 
   @override
   Future<Chat> createChat(int userId) async {
