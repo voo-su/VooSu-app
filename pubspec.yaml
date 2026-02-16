@@ -47,6 +47,10 @@ dependencies:
   protobuf: ^6.0.0
   fixnum: ^1.1.1
   shared_preferences: ^2.5.3
+  path_provider: ^2.1.5
+  drift: ^2.31.0
+  path: ^1.9.1
+  sqlite3_flutter_libs: ^0.5.41
 
 dev_dependencies:
   flutter_test:

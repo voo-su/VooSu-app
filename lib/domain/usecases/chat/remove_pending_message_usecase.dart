@@ -1,5 +1,9 @@
-class RemovePendingMessageUseCase {
-  const RemovePendingMessageUseCase();
+import 'package:voosu/data/db/app_database.dart';
 
-  Future<void> call(String localId) async {}
+class RemovePendingMessageUseCase {
+  final AppDatabase _db;
+
+  RemovePendingMessageUseCase(this._db);
+
+  Future<void> call(String localId) => _db.deletePendingMessage(localId);
 }

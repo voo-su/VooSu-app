@@ -7,6 +7,7 @@ import 'package:voosu/core/grpc_channel_manager.dart';
 import 'package:voosu/core/grpc_error_handler.dart';
 import 'package:voosu/core/log/logs.dart';
 import 'package:voosu/core/reconnect_policy.dart';
+import 'package:voosu/data/data_sources/local/user_local_data_source.dart';
 import 'package:voosu/generated/grpc_pb/account.pbgrpc.dart' as accountpb;
 import 'package:voosu/generated/grpc_pb/file.pbgrpc.dart' as filepb;
 
@@ -29,8 +30,12 @@ abstract class IAccountRemoteDataSource {
 
 class AccountRemoteDataSource implements IAccountRemoteDataSource {
   final GrpcChannelManager _channelManager;
+  final UserLocalDataSourceImpl _userLocal;
 
-  AccountRemoteDataSource(this._channelManager);
+  AccountRemoteDataSource(
+    this._channelManager,
+    this._userLocal,
+  );
 
   accountpb.AccountServiceClient get _client => _channelManager.accountClient;
 
@@ -126,8 +131,9 @@ class AccountRemoteDataSource implements IAccountRemoteDataSource {
       try {
         startPinging();
 
-        const currentPts = 0;
-        const currentDate = 0;
+        final syncState = await _userLocal.getSyncState();
+        final currentPts = syncState['pts'] ?? 0;
+        final currentDate = syncState['date'] ?? 0;
 
         reqCtrl.add(accountpb.UpdateRequest(
           state: accountpb.UpdateState(

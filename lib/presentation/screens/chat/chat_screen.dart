@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:voosu/core/injector.dart' as di;
+import 'package:voosu/data/data_sources/local/user_local_data_source.dart';
 import 'package:voosu/core/layout/responsive.dart';
 import 'package:voosu/core/log/logs.dart';
 import 'package:voosu/domain/entities/chat.dart';
@@ -45,7 +46,8 @@ class _UserChatScreenState extends State<UserChatScreen> {
   bool _isLoading = false;
   bool _isLoadingMore = false;
 
-  static const int _currentUserId = 0;
+  int get _currentUserId =>
+      di.sl<UserLocalDataSourceImpl>().user?.id ?? 0;
 
   static const double _loadMoreScrollThreshold = 120;
 
