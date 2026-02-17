@@ -1,4 +1,5 @@
 import 'package:grpc/grpc.dart';
+import 'package:voosu/core/auth_guard.dart';
 import 'package:voosu/core/failures.dart';
 import 'package:voosu/core/grpc_channel_manager.dart';
 import 'package:voosu/core/grpc_error_handler.dart';
@@ -17,8 +18,9 @@ abstract class ISearchRemoteDataSource {
 
 class SearchRemoteDataSource implements ISearchRemoteDataSource {
   final GrpcChannelManager _channelManager;
+  final AuthGuard _authGuard;
 
-  SearchRemoteDataSource(this._channelManager);
+  SearchRemoteDataSource(this._channelManager, this._authGuard);
 
   searchpb.SearchServiceClient get _client => _channelManager.searchClient;
 
@@ -35,7 +37,7 @@ class SearchRemoteDataSource implements ISearchRemoteDataSource {
         page: page,
         pageSize: pageSize,
       );
-      final resp = await _client.users(req);
+      final resp = await _authGuard.execute(() => _client.users(req));
       final users = UserMapper.listFromProto(resp.users);
 
       return (users, resp.total);

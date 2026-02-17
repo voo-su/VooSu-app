@@ -1,5 +1,6 @@
 import 'package:fixnum/fixnum.dart';
 import 'package:grpc/grpc.dart';
+import 'package:voosu/core/auth_guard.dart';
 import 'package:voosu/core/failures.dart';
 import 'package:voosu/core/grpc_channel_manager.dart';
 import 'package:voosu/core/grpc_error_handler.dart';
@@ -30,8 +31,9 @@ abstract class IChatRemoteDataSource {
 
 class ChatRemoteDataSource implements IChatRemoteDataSource {
   final GrpcChannelManager _channelManager;
+  final AuthGuard _authGuard;
 
-  ChatRemoteDataSource(this._channelManager);
+  ChatRemoteDataSource(this._channelManager, this._authGuard);
 
   chatpb.ChatServiceClient get _client => _channelManager.chatClient;
 
@@ -40,7 +42,7 @@ class ChatRemoteDataSource implements IChatRemoteDataSource {
     Logs().d('ChatRemoteDataSource: createChat userId=$userId');
     try {
       final req = chatpb.CreateChatRequest(userId: Int64(userId));
-      final resp = await _client.createChat(req);
+      final resp = await _authGuard.execute(() => _client.createChat(req));
 
       return ChatMapper.fromProto(resp);
     } on GrpcError catch (e) {
@@ -82,7 +84,7 @@ class ChatRemoteDataSource implements IChatRemoteDataSource {
         messageIds: messageIds.map((id) => Int64(id)).toList(),
         revoke: forEveryone,
       );
-      await _client.deleteMessages(req);
+      await _authGuard.execute(() => _client.deleteMessages(req));
     } on GrpcError catch (e) {
       Logs().e('ChatRemoteDataSource: ошибка gRPC в deleteMessages', e);
       throwGrpcError(e, 'Ошибка удаления сообщений');
@@ -98,7 +100,7 @@ class ChatRemoteDataSource implements IChatRemoteDataSource {
     try {
       final peer = commonpb.Peer(userId: Int64(peerUserId));
       final req = chatpb.ClearHistoryRequest(peer: peer);
-      await _client.clearHistory(req);
+      await _authGuard.execute(() => _client.clearHistory(req));
     } on GrpcError catch (e) {
       Logs().e('ChatRemoteDataSource: ошибка gRPC в clearHistory', e);
       throwGrpcError(e, 'Ошибка очистки истории');
@@ -114,7 +116,7 @@ class ChatRemoteDataSource implements IChatRemoteDataSource {
     try {
       final peer = commonpb.Peer(userId: Int64(peerUserId));
       final req = chatpb.DeleteChatRequest(peer: peer);
-      await _client.deleteChat(req);
+      await _authGuard.execute(() => _client.deleteChat(req));
     } on GrpcError catch (e) {
       Logs().e('ChatRemoteDataSource: ошибка gRPC в deleteChat', e);
       throwGrpcError(e, 'Ошибка удаления чата');
