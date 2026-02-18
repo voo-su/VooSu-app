@@ -5,6 +5,9 @@ import 'package:voosu/core/app_providers.dart';
 import 'package:voosu/core/injector.dart' as di;
 import 'package:voosu/core/log/logs.dart';
 import 'package:voosu/core/theme/app_theme.dart';
+import 'package:voosu/presentation/screens/auth/bloc/auth_bloc.dart';
+import 'package:voosu/presentation/screens/auth/bloc/auth_state.dart';
+import 'package:voosu/presentation/screens/auth/login_screen.dart';
 import 'package:voosu/presentation/screens/chat/chat_screen.dart';
 
 Future<void> main() async {
@@ -34,7 +37,19 @@ class App extends StatelessWidget {
           GlobalCupertinoLocalizations.delegate,
         ],
         supportedLocales: const [Locale('ru')],
-        home: const UserChatScreen(),
+        home: BlocBuilder<AuthBloc, AuthState>(
+          builder: (context, authState) {
+            if (authState.isLoading && !authState.isAuthenticated) {
+              return const Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              );
+            }
+            if (authState.isAuthenticated) {
+              return const UserChatScreen();
+            }
+            return const LoginScreen();
+          },
+        ),
       ),
     );
   }

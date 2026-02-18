@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:voosu/core/injector.dart' as di;
-import 'package:voosu/data/data_sources/local/user_local_data_source.dart';
 import 'package:voosu/core/layout/responsive.dart';
 import 'package:voosu/core/log/logs.dart';
 import 'package:voosu/domain/entities/chat.dart';
@@ -15,6 +15,7 @@ import 'package:voosu/domain/usecases/chat/get_chat_messages_usecase.dart';
 import 'package:voosu/domain/usecases/chat/get_chats_usecase.dart';
 import 'package:voosu/domain/usecases/chat/get_pending_for_chat_usecase.dart';
 import 'package:voosu/domain/usecases/chat/remove_pending_message_usecase.dart';
+import 'package:voosu/presentation/screens/auth/bloc/auth_bloc.dart';
 import 'package:voosu/presentation/screens/chat/widgets/chat_widgets.dart';
 
 class UserChatScreen extends StatefulWidget {
@@ -45,9 +46,6 @@ class _UserChatScreenState extends State<UserChatScreen> {
   Set<int> _selectedMessageIds = {};
   bool _isLoading = false;
   bool _isLoadingMore = false;
-
-  int get _currentUserId =>
-      di.sl<UserLocalDataSourceImpl>().user?.id ?? 0;
 
   static const double _loadMoreScrollThreshold = 120;
 
@@ -228,7 +226,7 @@ class _UserChatScreenState extends State<UserChatScreen> {
   }
 
   void _selectAllMyMessages() {
-    final currentUserId = _currentUserId;
+    final currentUserId = context.read<AuthBloc>().state.user?.id ?? 0;
     final myIds = _messages
         .where((m) => m.senderId == currentUserId)
         .map((m) => m.id)
@@ -429,7 +427,7 @@ class _UserChatScreenState extends State<UserChatScreen> {
   Widget build(BuildContext context) {
     final isMobile = Breakpoints.isMobile(context);
     final selectedChat = _selectedChat;
-    final currentUserId = _currentUserId;
+    final currentUserId = context.read<AuthBloc>().state.user?.id ?? 0;
 
     if (isMobile) {
       return Scaffold(

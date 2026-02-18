@@ -13,6 +13,8 @@ import 'package:voosu/data/repositories/account_repository_impl.dart';
 import 'package:voosu/data/repositories/auth_repository_impl.dart';
 import 'package:voosu/domain/repositories/account_repository.dart';
 import 'package:voosu/domain/repositories/auth_repository.dart';
+import 'package:voosu/domain/usecases/auth/email_auth_usecases.dart';
+import 'package:voosu/domain/usecases/auth/logout_usecase.dart';
 import 'package:voosu/domain/usecases/auth/refresh_token_usecase.dart';
 import 'package:voosu/domain/usecases/chat/get_chats_usecase.dart';
 import 'package:voosu/domain/usecases/chat/create_chat_usecase.dart';
@@ -23,6 +25,7 @@ import 'package:voosu/domain/usecases/chat/get_chat_messages_usecase.dart';
 import 'package:voosu/domain/usecases/chat/get_pending_for_chat_usecase.dart';
 import 'package:voosu/domain/usecases/chat/remove_pending_message_usecase.dart';
 import 'package:voosu/domain/usecases/search/search_users_usecase.dart';
+import 'package:voosu/presentation/screens/auth/bloc/auth_bloc.dart';
 import 'package:voosu/presentation/screens/projects/project_cubit.dart';
 
 final sl = GetIt.instance;
@@ -83,7 +86,10 @@ Future<void> init() async {
 
   sl.registerLazySingleton<AuthRepository>(() => AuthRepositoryImpl(sl()));
   sl.registerLazySingleton<AccountRepository>(() => AccountRepositoryImpl(sl()));
+  sl.registerFactory(() => RequestLoginCodeUseCase(sl()));
+  sl.registerFactory(() => VerifyLoginUseCase(sl()));
   sl.registerFactory(() => RefreshTokenUseCase(sl()));
+  sl.registerFactory(() => LogoutUseCase(sl()));
   sl.registerFactory(() => SearchUsersUseCase(sl<ISearchRemoteDataSource>()));
 
   sl.registerFactory(() => GetChatsUseCase(sl<IChatRemoteDataSource>()));
@@ -94,6 +100,17 @@ Future<void> init() async {
   sl.registerFactory(() => DeleteChatMessagesUseCase(sl<IChatRemoteDataSource>()));
   sl.registerFactory(() => ClearChatHistoryUseCase(sl<IChatRemoteDataSource>()));
   sl.registerFactory(() => DeleteChatUseCase(sl<IChatRemoteDataSource>()));
+
+  sl.registerLazySingleton<AuthBloc>(
+    () => AuthBloc(
+      requestLoginCodeUseCase: sl(),
+      verifyLoginUseCase: sl(),
+      refreshTokenUseCase: sl(),
+      logoutUseCase: sl(),
+      tokenStorage: sl<UserLocalDataSourceImpl>(),
+      authGuard: sl<AuthGuard>(),
+    ),
+  );
 
   sl.registerFactory(
     () => ProjectCubit(
