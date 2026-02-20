@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:voosu/core/layout/responsive.dart';
 import 'package:voosu/core/router/app_router.dart';
 import 'package:voosu/presentation/screens/auth/bloc/auth_bloc.dart';
 import 'package:voosu/presentation/screens/auth/bloc/auth_event.dart';
 import 'package:voosu/presentation/screens/chat/chat_screen.dart';
 import 'package:voosu/presentation/screens/menu/mobile_menu_screen.dart';
 import 'package:voosu/presentation/screens/projects/projects_screen.dart';
+import 'package:voosu/presentation/widgets/app_bottom_nav.dart';
+import 'package:voosu/presentation/widgets/side_navigation.dart';
 
 void _confirmLogout(BuildContext context) {
   final authBloc = context.read<AuthBloc>();
@@ -75,9 +78,39 @@ class MainLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = Breakpoints.isMobile(context);
     final tab = _destination();
+
+    void logout() => _confirmLogout(context);
+
+    final nav = isMobile
+        ? AppBottomNav(
+            selected: tab,
+            onDestinationSelected: (d) =>
+                context.go(AppRoutes.pathForDestination(d)),
+          )
+        : SideNavigation(
+            selected: tab,
+            onDestinationSelected: (d) =>
+                context.go(AppRoutes.pathForDestination(d)),
+            onLogout: logout,
+          );
+
     return Scaffold(
-      body: _tabBody(context, tab),
+      body: isMobile
+          ? Column(
+              children: [
+                Expanded(child: _tabBody(context, tab)),
+                nav,
+              ],
+            )
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                nav,
+                Expanded(child: _tabBody(context, tab)),
+              ],
+            ),
     );
   }
 }

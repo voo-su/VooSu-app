@@ -1,9 +1,6 @@
 import 'package:go_router/go_router.dart';
 import 'package:voosu/presentation/screens/main_layout.dart';
-
-enum NavDestination {
-  chat,
-}
+import 'package:voosu/presentation/widgets/side_navigation.dart';
 
 abstract final class AppRoutes {
   static const String chat = 'chat';
