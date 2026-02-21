@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fixnum/fixnum.dart';
 import 'package:grpc/grpc.dart';
 import 'package:voosu/core/auth_guard.dart';
@@ -6,6 +8,8 @@ import 'package:voosu/core/grpc_channel_manager.dart';
 import 'package:voosu/core/grpc_error_handler.dart';
 import 'package:voosu/core/log/logs.dart';
 import 'package:voosu/data/mappers/chat_mapper.dart';
+import 'package:voosu/data/mappers/message_mapper.dart';
+import 'package:voosu/data/mappers/user_mapper.dart';
 import 'package:voosu/domain/entities/chat.dart';
 import 'package:voosu/domain/entities/message.dart';
 import 'package:voosu/generated/grpc_pb/chat.pbgrpc.dart' as chatpb;
@@ -56,8 +60,21 @@ class ChatRemoteDataSource implements IChatRemoteDataSource {
 
   @override
   Future<List<Chat>> getChats() async {
-    Logs().d('ChatRemoteDataSource: getChats — без gRPC');
-    return [];
+    Logs().d('ChatRemoteDataSource: getChats');
+    try {
+      final req = chatpb.GetChatsRequest();
+      final resp = await _authGuard.execute(() => _client.getChats(req));
+
+      final users = UserMapper.listFromProto(resp.users);
+      final userById = {for (final u in users) u.id: u};
+      return ChatMapper.listFromProto(resp.chats, userById);
+    } on GrpcError catch (e) {
+      Logs().e('ChatRemoteDataSource: ошибка gRPC в getChats', e);
+      throwGrpcError(e, 'Ошибка получения чатов');
+    } catch (e) {
+      Logs().e('ChatRemoteDataSource: ошибка в getChats', e);
+      throw ApiFailure('Ошибка получения чатов');
+    }
   }
 
   @override
@@ -66,10 +83,24 @@ class ChatRemoteDataSource implements IChatRemoteDataSource {
     required int messageId,
     required int limit,
   }) async {
-    Logs().d(
-      'ChatRemoteDataSource: getHistory — без gRPC peerUserId=$peerUserId',
-    );
-    return [];
+    Logs().d('ChatRemoteDataSource: getHistory peerUserId=$peerUserId');
+    try {
+      final peer = commonpb.Peer(userId: Int64(peerUserId));
+      final req = chatpb.GetHistoryRequest(
+        peer: peer,
+        messageId: Int64(messageId),
+        limit: Int64(limit),
+      );
+      final resp = await _authGuard.execute(() => _client.getHistory(req));
+
+      return MessageMapper.listFromProto(resp.messages);
+    } on GrpcError catch (e) {
+      Logs().e('ChatRemoteDataSource: ошибка gRPC в getHistory', e);
+      throwGrpcError(e, 'Ошибка получения сообщений');
+    } catch (e) {
+      Logs().e('ChatRemoteDataSource: ошибка в getHistory', e);
+      throw ApiFailure('Ошибка получения сообщений');
+    }
   }
 
   @override
