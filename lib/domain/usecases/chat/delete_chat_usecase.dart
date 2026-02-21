@@ -1,9 +1,9 @@
-import 'package:voosu/data/data_sources/remote/chat_remote_datasource.dart';
+import 'package:voosu/domain/repositories/chat_repository.dart';
 
 class DeleteChatUseCase {
-  final IChatRemoteDataSource _remote;
+  final ChatRepository repo;
 
-  DeleteChatUseCase(this._remote);
+  DeleteChatUseCase(this.repo);
 
-  Future<void> call({required int peerUserId}) => _remote.deleteChat(peerUserId: peerUserId);
+  Future<void> call({required int peerUserId}) => repo.deleteChat(peerUserId: peerUserId);
 }

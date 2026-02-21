@@ -15,7 +15,7 @@ class AccountRepositoryImpl implements AccountRepository {
     Logs().i('AccountRepositoryImpl - getUpdates');
 
     return dataSource.getUpdates().asyncExpand((response) async* {
-      Logs().i('AccountRepositoryImpl - getUpdates ${response.updates}');
+      Logs().i('ChatRepositoryImpl - getUpdates ${response.updates}');
 
       for (final update in response.updates) {
         final domainUpdate = AccountUpdateMapper.fromGrpc(update);

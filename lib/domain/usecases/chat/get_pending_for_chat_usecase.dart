@@ -1,25 +1,21 @@
-import 'package:voosu/data/db/app_database.dart';
 import 'package:voosu/domain/entities/pending_queue_item.dart';
+import 'package:voosu/domain/repositories/chat_repository.dart';
 
 class GetPendingForChatUseCase {
-  final AppDatabase _db;
+  final ChatRepository repo;
 
-  GetPendingForChatUseCase(this._db);
+  GetPendingForChatUseCase(this.repo);
 
   Future<List<PendingQueueItem>> call(int chatId) async {
-    final rows = await _db.getPendingForChat(chatId);
-    return rows
-        .map(
-          (r) => PendingQueueItem(
-            localId: r.localId,
-            content: r.content,
-            attachmentsJson: r.attachmentsJson,
-            replyToId: r.replyToId,
-            createdAt: DateTime.fromMillisecondsSinceEpoch(
-              (r.createdAt) * 1000,
-            ),
-          ),
-        )
-        .toList();
+    final list = await repo.getPendingForChat(chatId);
+    return list.map((m) => PendingQueueItem(
+      localId: m['localId'] as String,
+      content: m['content'] as String? ?? '',
+      attachmentsJson: m['attachmentsJson'] as String?,
+      replyToId: m['replyToId'] as int? ?? 0,
+      createdAt: DateTime.fromMillisecondsSinceEpoch(
+        ((m['createdAt'] as int?) ?? 0) * 1000,
+      ),
+    )).toList();
   }
 }

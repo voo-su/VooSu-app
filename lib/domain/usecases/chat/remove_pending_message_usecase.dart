@@ -1,9 +1,9 @@
-import 'package:voosu/data/db/app_database.dart';
+import 'package:voosu/domain/repositories/chat_repository.dart';
 
 class RemovePendingMessageUseCase {
-  final AppDatabase _db;
+  final ChatRepository repo;
 
-  RemovePendingMessageUseCase(this._db);
+  RemovePendingMessageUseCase(this.repo);
 
-  Future<void> call(String localId) => _db.deletePendingMessage(localId);
+  Future<void> call(String localId) => repo.removePendingMessage(localId);
 }

@@ -1,10 +1,10 @@
-import 'package:voosu/data/data_sources/remote/chat_remote_datasource.dart';
 import 'package:voosu/domain/entities/chat.dart';
+import 'package:voosu/domain/repositories/chat_repository.dart';
 
 class CreateChatUseCase {
-  final IChatRemoteDataSource _remote;
+  final ChatRepository repo;
 
-  CreateChatUseCase(this._remote);
+  CreateChatUseCase(this.repo);
 
-  Future<Chat> call(int userId) => _remote.createChat(userId);
+  Future<Chat> call(int userId) => repo.createChat(userId);
 }

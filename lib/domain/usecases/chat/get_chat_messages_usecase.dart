@@ -1,19 +1,18 @@
-import 'package:voosu/data/data_sources/remote/chat_remote_datasource.dart';
 import 'package:voosu/domain/entities/message.dart';
+import 'package:voosu/domain/repositories/chat_repository.dart';
 
 class GetChatMessagesUseCase {
-  final IChatRemoteDataSource _remote;
+  final ChatRepository repo;
 
-  GetChatMessagesUseCase(this._remote);
+  GetChatMessagesUseCase(this.repo);
 
   Future<List<Message>> call({
     required int peerUserId,
     required int messageId,
     required int limit,
-  }) =>
-      _remote.getHistory(
-        peerUserId: peerUserId,
-        messageId: messageId,
-        limit: limit,
-      );
+  }) => repo.getHistory(
+    peerUserId: peerUserId,
+    messageId: messageId,
+    limit: limit,
+  );
 }
