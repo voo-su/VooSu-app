@@ -1,17 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:voosu/domain/entities/chat.dart';
+import 'package:voosu/presentation/screens/chat/bloc/chat_bloc.dart';
+import 'package:voosu/presentation/screens/chat/bloc/chat_event.dart';
 import 'package:voosu/presentation/screens/chat/widgets/chat_list_avatar.dart';
 import 'package:voosu/presentation/screens/chat/widgets/chat_list_item.dart';
 
 class ChatAppBar extends StatelessWidget {
   final Chat chat;
-  final VoidCallback onBack;
 
-  const ChatAppBar({
-    super.key,
-    required this.chat,
-    required this.onBack,
-  });
+  const ChatAppBar({super.key, required this.chat});
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +35,8 @@ class ChatAppBar extends StatelessWidget {
         children: [
           IconButton(
             icon: const Icon(Icons.arrow_back_rounded),
-            onPressed: onBack,
+            onPressed: () =>
+                context.read<ChatBloc>().add(const ChatBackToList()),
           ),
           ChatListAvatar(
             title: title,

@@ -1,39 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:voosu/domain/entities/chat.dart';
+import 'package:voosu/presentation/screens/chat/bloc/chat_bloc.dart';
+import 'package:voosu/presentation/screens/chat/bloc/chat_event.dart';
+import 'package:voosu/presentation/screens/chat/bloc/chat_state.dart';
 import 'package:voosu/presentation/screens/chat/widgets/chat_list_item.dart';
 import 'package:voosu/presentation/widgets/loading_placeholder.dart';
 
 class ChatListWidget extends StatelessWidget {
-  final List<Chat> chats;
-  final Chat? selectedChat;
-  final bool isLoading;
-  final void Function(Chat chat) onSelectChat;
-  final void Function(Chat chat) onDeleteChat;
+  final ChatState state;
 
-  const ChatListWidget({
-    super.key,
-    required this.chats,
-    required this.selectedChat,
-    required this.isLoading,
-    required this.onSelectChat,
-    required this.onDeleteChat,
-  });
+  const ChatListWidget({super.key, required this.state});
 
   @override
   Widget build(BuildContext context) {
-    if (isLoading && chats.isEmpty) {
+    if (state.isLoading && state.chats.isEmpty) {
       return const LoadingPlaceholder();
     }
 
-    if (chats.isEmpty) {
+    if (state.chats.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Text(
             'Чатов пока нет',
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
         ),
       );
@@ -41,24 +34,24 @@ class ChatListWidget extends StatelessWidget {
 
     return ListView.separated(
       padding: const EdgeInsets.symmetric(vertical: 6),
-      itemCount: chats.length,
+      itemCount: state.chats.length,
       separatorBuilder: (context, index) => const Divider(
         height: 1,
         indent: 60,
       ),
       itemBuilder: (context, index) {
-        final chat = chats[index];
+        final chat = state.chats[index];
         return ChatListItem(
           chat: chat,
-          isSelected: chat == selectedChat,
-          onTap: () => onSelectChat(chat),
+          isSelected: chat == state.selectedChat,
+          onTap: () => context.read<ChatBloc>().add(ChatSelectChat(chat)),
           onDeleteChat: () => _showDeleteChatConfirm(context, chat),
         );
       },
     );
   }
 
-  Future<void> _showDeleteChatConfirm(BuildContext context, Chat chat) async {
+  static Future<void> _showDeleteChatConfirm(BuildContext context, Chat chat) async {
     final title = ChatListItem.title(chat);
     final confirmed = await showDialog<bool>(
       context: context,
@@ -81,7 +74,7 @@ class ChatListWidget extends StatelessWidget {
       ),
     );
     if (confirmed == true && context.mounted) {
-      onDeleteChat(chat);
+      context.read<ChatBloc>().add(ChatDeleteChat(chat));
     }
   }
 }

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:voosu/core/injector.dart' as di;
 import 'package:voosu/domain/entities/user.dart';
 import 'package:voosu/domain/usecases/search/search_users_usecase.dart';
+import 'package:voosu/presentation/screens/chat/bloc/chat_bloc.dart';
+import 'package:voosu/presentation/screens/chat/bloc/chat_event.dart';
 
 class ChatUserSearchScreen extends StatefulWidget {
   const ChatUserSearchScreen({super.key});
@@ -16,6 +19,11 @@ class _ChatUserSearchScreenState extends State<ChatUserSearchScreen> {
   String _query = '';
   bool _isLoading = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+  }
 
   Future<void> _search() async {
     final query = _query.trim();
@@ -47,7 +55,9 @@ class _ChatUserSearchScreenState extends State<ChatUserSearchScreen> {
   }
 
   void _onUserTap(User user) {
-    Navigator.of(context).pop<User>(user);
+    final bloc = context.read<ChatBloc>();
+    bloc.add(ChatOpenWithUser(user.id));
+    Navigator.of(context).pop();
   }
 
   @override

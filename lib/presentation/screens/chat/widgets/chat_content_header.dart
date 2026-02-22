@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:voosu/domain/entities/chat.dart';
-import 'package:voosu/domain/entities/message.dart';
+import 'package:voosu/presentation/screens/chat/bloc/chat_bloc.dart';
+import 'package:voosu/presentation/screens/chat/bloc/chat_event.dart';
+import 'package:voosu/presentation/screens/chat/bloc/chat_state.dart';
 import 'package:voosu/presentation/screens/chat/widgets/chat_delete_scope_dialog.dart';
 import 'package:voosu/presentation/screens/chat/widgets/chat_list_avatar.dart';
 import 'package:voosu/presentation/screens/chat/widgets/chat_list_item.dart';
@@ -9,38 +12,22 @@ import 'package:voosu/core/layout/responsive.dart';
 class ChatContentHeader extends StatelessWidget {
   final Chat? selectedChat;
   final bool showBackButton;
-  final List<Message> messages;
-  final Set<int> selectedMessageIds;
-  final bool isSelectionMode;
+  final ChatState chatState;
   final int? currentUserId;
-  final VoidCallback onBack;
-  final Future<void> Function() onClearHistory;
-  final Future<void> Function(Chat chat) onDeleteChat;
-  final VoidCallback onSelectAllMyMessages;
-  final VoidCallback onClearSelection;
-  final Future<void> Function(bool forEveryone) onDeleteSelectedMessages;
 
   const ChatContentHeader({
     super.key,
     required this.selectedChat,
-    required this.messages,
-    required this.selectedMessageIds,
-    required this.isSelectionMode,
+    required this.chatState,
     this.currentUserId,
-    required this.showBackButton,
-    required this.onBack,
-    required this.onClearHistory,
-    required this.onDeleteChat,
-    required this.onSelectAllMyMessages,
-    required this.onClearSelection,
-    required this.onDeleteSelectedMessages,
+    this.showBackButton = true,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    if (selectedChat == null && !isSelectionMode) {
+    if (selectedChat == null && !chatState.isSelectionMode) {
       return const SizedBox.shrink();
     }
 
@@ -59,25 +46,26 @@ class ChatContentHeader extends StatelessWidget {
           ),
         ),
       ),
-      child: isSelectionMode
+      child: chatState.isSelectionMode
           ? _buildSelectionHeader(context, theme)
           : _buildChatHeader(context, theme),
     );
   }
 
   Widget _buildSelectionHeader(BuildContext context, ThemeData theme) {
-    final count = selectedMessageIds.length;
-    final uid = currentUserId;
-    final myMessageIds = uid != null
-        ? messages
-            .where((m) => m.senderId == uid)
-            .map((m) => m.id)
-            .toSet()
+    final count = chatState.selectedMessageIds.length;
+    final currentUserId = this.currentUserId;
+    final myMessageIds = currentUserId != null
+        ? chatState.messages
+              .where((m) => m.senderId == currentUserId)
+              .map((m) => m.id)
+              .toSet()
         : <int>{};
-    final allMySelected = myMessageIds.isNotEmpty &&
-        myMessageIds.every((id) => selectedMessageIds.contains(id));
+    final allMySelected =
+        myMessageIds.isNotEmpty &&
+        myMessageIds.every((id) => chatState.selectedMessageIds.contains(id));
     final someMySelected = myMessageIds.any(
-      (id) => selectedMessageIds.contains(id),
+      (id) => chatState.selectedMessageIds.contains(id),
     );
 
     return Row(
@@ -89,9 +77,9 @@ class ChatContentHeader extends StatelessWidget {
             tristate: true,
             onChanged: (value) {
               if (value == true) {
-                onSelectAllMyMessages();
+                context.read<ChatBloc>().add(const ChatSelectAllMyMessages());
               } else {
-                onClearSelection();
+                context.read<ChatBloc>().add(const ChatClearSelection());
               }
             },
             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -106,7 +94,8 @@ class ChatContentHeader extends StatelessWidget {
           ),
         ),
         TextButton(
-          onPressed: onClearSelection,
+          onPressed: () =>
+              context.read<ChatBloc>().add(const ChatClearSelection()),
           child: const Text('Отмена'),
         ),
         const SizedBox(width: 8),
@@ -114,7 +103,9 @@ class ChatContentHeader extends StatelessWidget {
           onPressed: () async {
             final forEveryone = await showDeleteScopeDialog(context);
             if (context.mounted && forEveryone != null) {
-              await onDeleteSelectedMessages(forEveryone);
+              context.read<ChatBloc>().add(
+                ChatDeleteSelectedMessages(forEveryone: forEveryone),
+              );
             }
           },
           icon: const Icon(Icons.delete_outline, size: 18),
@@ -133,7 +124,7 @@ class ChatContentHeader extends StatelessWidget {
         if (showBackButton)
           IconButton(
             icon: const Icon(Icons.arrow_back_rounded),
-            onPressed: onBack,
+            onPressed: () => context.read<ChatBloc>().add(const ChatBackToList()),
           ),
         Expanded(
           child: InkWell(
@@ -215,7 +206,7 @@ class ChatContentHeader extends StatelessWidget {
     );
   }
 
-  Future<void> _showClearHistoryConfirm(BuildContext context) async {
+  static Future<void> _showClearHistoryConfirm(BuildContext context) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) {
@@ -241,11 +232,11 @@ class ChatContentHeader extends StatelessWidget {
     );
 
     if (context.mounted && confirmed == true) {
-      await onClearHistory();
+      context.read<ChatBloc>().add(const ChatClearHistory());
     }
   }
 
-  Future<void> _showDeleteChatConfirm(BuildContext context, Chat chat) async {
+  static Future<void> _showDeleteChatConfirm(BuildContext context, Chat chat) async {
     final title = ChatListItem.title(chat);
     final confirmed = await showDialog<bool>(
       context: context,
@@ -268,7 +259,7 @@ class ChatContentHeader extends StatelessWidget {
       ),
     );
     if (context.mounted && confirmed == true) {
-      await onDeleteChat(chat);
+      context.read<ChatBloc>().add(ChatDeleteChat(chat));
     }
   }
 

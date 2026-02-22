@@ -28,6 +28,7 @@ import 'package:voosu/domain/usecases/chat/get_pending_for_chat_usecase.dart';
 import 'package:voosu/domain/usecases/chat/remove_pending_message_usecase.dart';
 import 'package:voosu/domain/usecases/search/search_users_usecase.dart';
 import 'package:voosu/presentation/screens/auth/bloc/auth_bloc.dart';
+import 'package:voosu/presentation/screens/chat/bloc/chat_bloc.dart';
 import 'package:voosu/presentation/screens/projects/project_cubit.dart';
 
 final sl = GetIt.instance;
@@ -105,6 +106,20 @@ Future<void> init() async {
   sl.registerFactory(() => DeleteChatMessagesUseCase(sl()));
   sl.registerFactory(() => ClearChatHistoryUseCase(sl()));
   sl.registerFactory(() => DeleteChatUseCase(sl()));
+
+  sl.registerFactory(
+    () => ChatBloc(
+      getChatsUseCase: sl(),
+      createChatUseCase: sl(),
+      getChatMessagesUseCase: sl(),
+      getPendingForChatUseCase: sl(),
+      removePendingMessageUseCase: sl(),
+      deleteChatMessagesUseCase: sl(),
+      clearChatHistoryUseCase: sl(),
+      deleteChatUseCase: sl(),
+      authBloc: sl<AuthBloc>(),
+    ),
+  );
 
   sl.registerLazySingleton<AuthBloc>(
     () => AuthBloc(
