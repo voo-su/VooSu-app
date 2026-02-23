@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:voosu/core/date_formatter.dart';
 import 'package:voosu/domain/entities/pending_queue_item.dart';
@@ -84,6 +86,11 @@ class QueuedMessageBubble extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 4),
+                      if (item.hasAttachments) ...[
+                        _buildAttachmentHint(theme),
+                        if (item.content.trim().isNotEmpty)
+                          const SizedBox(height: 4),
+                      ],
                       if (item.content.trim().isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 4),
@@ -136,6 +143,38 @@ class QueuedMessageBubble extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildAttachmentHint(ThemeData theme) {
+    int count = 0;
+    if (item.attachmentsJson != null && item.attachmentsJson!.isNotEmpty) {
+      try {
+        final list = jsonDecode(item.attachmentsJson!) as List<dynamic>?;
+        count = list?.length ?? 0;
+      } catch (_) {}
+    }
+    if (count == 0) count = 1;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.attach_file_rounded,
+            size: 16,
+            color: textColor.withValues(alpha: 0.9),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            count == 1 ? 'Вложение' : 'Вложений: $count',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: textColor.withValues(alpha: 0.95),
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -14,11 +14,14 @@ import 'package:voosu/presentation/widgets/loading_placeholder.dart';
 class ChatMessagesList extends StatelessWidget {
   final ChatState state;
   final ScrollController scrollController;
+  final Future<void> Function(int fileId, String filename)?
+  onDownloadAttachment;
 
   const ChatMessagesList({
     super.key,
     required this.state,
     required this.scrollController,
+    this.onDownloadAttachment,
   });
 
   @override
@@ -74,6 +77,7 @@ class ChatMessagesList extends StatelessWidget {
             return MessageBubble(
               message: message,
               isFromMe: isFromMe,
+              onDownloadAttachment: onDownloadAttachment,
               onDelete: () async {
                 final forEveryone = await showDeleteScopeDialog(
                   context,

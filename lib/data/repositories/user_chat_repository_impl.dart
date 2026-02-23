@@ -2,6 +2,7 @@ import 'package:voosu/core/failures.dart';
 import 'package:voosu/core/log/logs.dart';
 import 'package:voosu/data/data_sources/remote/chat_remote_datasource.dart';
 import 'package:voosu/data/db/app_database.dart';
+import 'package:voosu/domain/entities/attachment_upload.dart';
 import 'package:voosu/domain/entities/chat.dart';
 import 'package:voosu/domain/entities/message.dart';
 import 'package:voosu/domain/repositories/chat_repository.dart';
@@ -31,6 +32,50 @@ class ChatRepositoryImpl implements ChatRepository {
       if (e is Failure) rethrow;
       Logs().e('ChatRepository: неожиданная ошибка в getChats', e);
       throw ApiFailure('Ошибка получения чатов');
+    }
+  }
+
+  @override
+  Future<Message> sendMessage({
+    required int peerUserId,
+    required String content,
+    List<AttachmentUpload>? attachments,
+  }) async {
+    try {
+      return await _remote.sendMessage(
+        peerUserId: peerUserId,
+        content: content,
+        attachments: attachments,
+      );
+    } catch (e) {
+      if (e is Failure) rethrow;
+      Logs().e('ChatRepository: неожиданная ошибка в sendMessage', e);
+      throw ApiFailure('Ошибка отправки сообщения');
+    }
+  }
+
+  @override
+  Future<int> uploadFile({
+    required String filename,
+    String mimeType = '',
+    required Stream<List<int>> chunkStream,
+    int? totalBytes,
+    void Function(int sentBytes, int? totalBytes)? onProgress,
+  }) async {
+    try {
+      return await _remote.uploadFile(
+        filename: filename,
+        mimeType: mimeType,
+        chunkStream: chunkStream,
+        totalBytes: totalBytes,
+        onProgress: onProgress,
+      );
+    } catch (e) {
+      if (e is Failure) {
+        rethrow;
+      }
+      Logs().e('ChatRepository: ошибка uploadFile', e);
+      throw ApiFailure('Ошибка загрузки файла');
     }
   }
 
@@ -88,6 +133,39 @@ class ChatRepositoryImpl implements ChatRepository {
       Logs().e('ChatRepository: неожиданная ошибка в deleteChat', e);
       throw ApiFailure('Ошибка удаления чата');
     }
+  }
+
+  @override
+  Future<void> savePendingMessage({
+    required String localId,
+    required int peerUserId,
+    required String content,
+    String? attachmentsJson,
+  }) async {
+    await _db?.insertPendingMessage(
+      localId: localId,
+      peerUserId: peerUserId,
+      peerGroupId: 0,
+      content: content,
+      attachmentsJson: attachmentsJson,
+    );
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getPendingOutgoingMessages() async {
+    if (_db == null) {
+      return [];
+    }
+
+    final rows = await _db.getPendingOutgoingMessages();
+    return rows.map((r) => {
+      'localId': r.localId,
+      'peerUserId': r.peerUserId,
+      'peerGroupId': r.peerGroupId,
+      'content': r.content,
+      'attachmentsJson': r.attachmentsJson,
+      'replyToId': r.replyToId,
+    }).toList();
   }
 
   @override

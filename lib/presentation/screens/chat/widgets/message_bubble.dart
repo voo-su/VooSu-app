@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:voosu/core/attachment_type_helper.dart';
 import 'package:voosu/core/date_formatter.dart';
 import 'package:voosu/domain/entities/message.dart';
+import 'package:voosu/presentation/screens/chat/widgets/chat_attachment_view.dart';
 
 class MessageBubble extends StatelessWidget {
   final Message message;
   final bool isFromMe;
   final VoidCallback? onDelete;
+  final Future<void> Function(int fileId, String filename)?
+  onDownloadAttachment;
   final bool isSelectionMode;
   final bool isSelected;
   final VoidCallback? onToggleSelection;
@@ -16,6 +20,7 @@ class MessageBubble extends StatelessWidget {
     required this.message,
     required this.isFromMe,
     this.onDelete,
+    this.onDownloadAttachment,
     this.isSelectionMode = false,
     this.isSelected = false,
     this.onToggleSelection,
@@ -24,6 +29,7 @@ class MessageBubble extends StatelessWidget {
   static const double _bubbleRadius = 18;
   static const double _tailRadius = 4;
   static const double _maxWidthFraction = 0.75;
+  static const double _maxWidthFractionNarrow = 0.52;
 
   static void _showContextMenu(
     BuildContext context,
@@ -138,9 +144,13 @@ class MessageBubble extends StatelessWidget {
         !isSelectionMode &&
         (onDelete != null || onToggleSelection != null);
 
+    final useNarrowWidth = message.attachments.isNotEmpty &&
+        message.attachments.every((a) => a.type == AttachmentType.audio);
     return LayoutBuilder(
       builder: (context, constraints) {
-        final maxBubbleWidth = constraints.maxWidth * _maxWidthFraction;
+        final maxBubbleWidth =
+            constraints.maxWidth *
+            (useNarrowWidth ? _maxWidthFractionNarrow : _maxWidthFraction);
         Widget row = Row(
           mainAxisAlignment: isFromMe
               ? MainAxisAlignment.end
@@ -208,6 +218,16 @@ class MessageBubble extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
+                      if (message.attachments.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        ...message.attachments.map(
+                          (att) => ChatAttachmentView(
+                            attachment: att,
+                            onDownload: onDownloadAttachment,
+                            textColor: textColor,
+                          ),
+                        ),
+                      ],
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         mainAxisAlignment: MainAxisAlignment.end,

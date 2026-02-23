@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:voosu/domain/entities/attachment_upload.dart';
 import 'package:voosu/domain/entities/chat.dart';
 import 'package:voosu/domain/entities/message.dart';
 import 'package:voosu/domain/entities/pending_queue_item.dart';
@@ -58,6 +59,19 @@ class ChatMessagesForChatLoaded extends ChatEvent {
 
   @override
   List<Object?> get props => [chat, messages, updatedChats, pendingQueue];
+}
+
+class ChatSendMessage extends ChatEvent {
+  final String text;
+  final List<AttachmentUpload>? attachments;
+
+  const ChatSendMessage(
+    this.text, {
+    this.attachments,
+  });
+
+  @override
+  List<Object?> get props => [text, attachments];
 }
 
 class ChatClearError extends ChatEvent {

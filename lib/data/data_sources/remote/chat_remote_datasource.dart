@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:fixnum/fixnum.dart';
 import 'package:grpc/grpc.dart';
@@ -10,15 +11,31 @@ import 'package:voosu/core/log/logs.dart';
 import 'package:voosu/data/mappers/chat_mapper.dart';
 import 'package:voosu/data/mappers/message_mapper.dart';
 import 'package:voosu/data/mappers/user_mapper.dart';
+import 'package:voosu/domain/entities/attachment_upload.dart';
 import 'package:voosu/domain/entities/chat.dart';
 import 'package:voosu/domain/entities/message.dart';
 import 'package:voosu/generated/grpc_pb/chat.pbgrpc.dart' as chatpb;
 import 'package:voosu/generated/grpc_pb/common.pb.dart' as commonpb;
+import 'package:voosu/generated/grpc_pb/file.pbgrpc.dart' as filepb;
 
 abstract class IChatRemoteDataSource {
   Future<Chat> createChat(int userId);
 
   Future<List<Chat>> getChats();
+
+  Future<Message> sendMessage({
+    required int peerUserId,
+    required String content,
+    List<AttachmentUpload>? attachments,
+  });
+
+  Future<int> uploadFile({
+    required String filename,
+    String mimeType = '',
+    required Stream<List<int>> chunkStream,
+    int? totalBytes,
+    void Function(int sentBytes, int? totalBytes)? onProgress,
+  });
 
   Future<List<Message>> getHistory({
     required int peerUserId,
@@ -40,6 +57,7 @@ class ChatRemoteDataSource implements IChatRemoteDataSource {
   ChatRemoteDataSource(this._channelManager, this._authGuard);
 
   chatpb.ChatServiceClient get _client => _channelManager.chatClient;
+  filepb.FileServiceClient get _fileClient => _channelManager.fileClient;
 
   @override
   Future<Chat> createChat(int userId) async {
@@ -74,6 +92,90 @@ class ChatRemoteDataSource implements IChatRemoteDataSource {
     } catch (e) {
       Logs().e('ChatRemoteDataSource: ошибка в getChats', e);
       throw ApiFailure('Ошибка получения чатов');
+    }
+  }
+
+  @override
+  Future<Message> sendMessage({
+    required int peerUserId,
+    required String content,
+    List<AttachmentUpload>? attachments,
+  }) async {
+    Logs().d('ChatRemoteDataSource: sendMessage peerUserId=$peerUserId');
+    try {
+      final peer = commonpb.Peer(userId: Int64(peerUserId));
+      final attachmentProtos = (attachments ?? []).map((a) => chatpb.AttachmentUpload(
+        filename: a.filename,
+        fileId: Int64(a.fileId),
+      ))
+      .toList();
+      final req = chatpb.SendMessageRequest(
+        peer: peer,
+        content: content,
+        forwarded: false,
+        attachments: attachmentProtos,
+      );
+      final resp = await _authGuard.execute(() => _client.sendMessage(req));
+
+      return MessageMapper.fromProto(resp);
+    } on GrpcError catch (e) {
+      Logs().e('ChatRemoteDataSource: ошибка gRPC в sendMessage', e);
+      throwGrpcError(e, 'Ошибка отправки сообщения');
+    } catch (e) {
+      Logs().e('ChatRemoteDataSource: ошибка в sendMessage', e);
+      throw ApiFailure('Ошибка отправки сообщения');
+    }
+  }
+
+  @override
+  Future<int> uploadFile({
+    required String filename,
+    String mimeType = '',
+    required Stream<List<int>> chunkStream,
+    int? totalBytes,
+    void Function(int sentBytes, int? totalBytes)? onProgress,
+  }) async {
+    Logs().d('ChatRemoteDataSource: uploadFile filename=$filename');
+    try {
+      const maxPayload = 2 * 1024 * 1024;
+      Stream<filepb.UploadFileRequest> requestStream() async* {
+        final meta = filepb.UploadFileMeta(
+          filename: filename,
+          mimeType: mimeType,
+        );
+        if (totalBytes != null && totalBytes > 0) {
+          meta.totalBytes = Int64(totalBytes);
+        }
+        yield filepb.UploadFileRequest(meta: meta);
+        var partNumber = 1;
+        var sent = 0;
+        await for (final chunk in chunkStream) {
+          if (chunk.isEmpty) {
+            continue;
+          }
+          for (var i = 0; i < chunk.length; i += maxPayload) {
+            final end = math.min(i + maxPayload, chunk.length);
+            final piece = chunk.sublist(i, end);
+            yield filepb.UploadFileRequest(
+              chunk: filepb.FileChunk(
+                partNumber: partNumber++,
+                data: piece,
+              ),
+            );
+            sent += piece.length;
+            onProgress?.call(sent, totalBytes);
+          }
+        }
+      }
+
+      final resp = await _authGuard.execute(() => _fileClient.uploadFile(requestStream()));
+      return resp.fileId.toInt();
+    } on GrpcError catch (e) {
+      Logs().e('ChatRemoteDataSource: ошибка gRPC в uploadFile', e);
+      throwGrpcError(e, 'Ошибка загрузки файла');
+    } catch (e) {
+      Logs().e('ChatRemoteDataSource: ошибка в uploadFile', e);
+      throw ApiFailure('Ошибка загрузки файла');
     }
   }
 

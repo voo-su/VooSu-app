@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:voosu/core/client_local_id.dart';
 import 'package:voosu/core/log/logs.dart';
 import 'package:voosu/domain/entities/chat.dart';
 import 'package:voosu/domain/entities/message.dart';
@@ -13,6 +15,8 @@ import 'package:voosu/domain/entities/pending_queue_item.dart';
 import 'package:voosu/domain/usecases/chat/get_chats_usecase.dart';
 import 'package:voosu/domain/usecases/chat/get_pending_for_chat_usecase.dart';
 import 'package:voosu/domain/usecases/chat/remove_pending_message_usecase.dart';
+import 'package:voosu/domain/usecases/chat/save_pending_message_usecase.dart';
+import 'package:voosu/domain/usecases/chat/send_chat_message_usecase.dart';
 import 'package:voosu/presentation/screens/auth/bloc/auth_bloc.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_event.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_state.dart';
@@ -21,6 +25,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   final GetChatsUseCase getChatsUseCase;
   final CreateChatUseCase createChatUseCase;
   final GetChatMessagesUseCase getChatMessagesUseCase;
+  final SendChatMessageUseCase sendChatMessageUseCase;
+  final SavePendingMessageUseCase savePendingMessageUseCase;
   final GetPendingForChatUseCase getPendingForChatUseCase;
   final RemovePendingMessageUseCase removePendingMessageUseCase;
   final DeleteChatMessagesUseCase deleteChatMessagesUseCase;
@@ -32,6 +38,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     required this.getChatsUseCase,
     required this.createChatUseCase,
     required this.getChatMessagesUseCase,
+    required this.sendChatMessageUseCase,
+    required this.savePendingMessageUseCase,
     required this.getPendingForChatUseCase,
     required this.removePendingMessageUseCase,
     required this.deleteChatMessagesUseCase,
@@ -44,6 +52,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<ChatOpenWithUser>(_onOpenWithUser);
     on<ChatSelectChat>(_onSelectChat);
     on<ChatMessagesForChatLoaded>(_onMessagesForChatLoaded);
+    on<ChatSendMessage>(_onSendMessage);
     on<ChatClearError>(_onClearError);
     on<ChatBackToList>(_onBackToList);
     on<ChatDeleteMessage>(_onDeleteMessage);
@@ -224,6 +233,75 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       final queue = await getPendingForChatUseCase(chatId);
       emit(state.copyWith(pendingQueue: queue));
     } catch (_) {}
+  }
+
+  Future<void> _onSendMessage(
+    ChatSendMessage event,
+    Emitter<ChatState> emit,
+  ) async {
+    final text = event.text.trim();
+    final hasAttachments =
+        event.attachments != null && event.attachments!.isNotEmpty;
+    if (text.isEmpty && !hasAttachments) {
+      return;
+    }
+    final chat = state.selectedChat;
+    if (chat == null) {
+      emit(state.copyWith(error: 'Чат не выбран'));
+      return;
+    }
+
+    emit(state.copyWith(isSending: true, error: null));
+    try {
+      final message = await sendChatMessageUseCase(
+        peerUserId: chat.peerUserId,
+        content: text.isEmpty ? '' : text,
+        attachments: event.attachments,
+      );
+      final updatedMessages = [...state.messages, message];
+      emit(
+        state.copyWith(
+          isSending: false,
+          messages: updatedMessages,
+        ),
+      );
+      add(const ChatLoadChats(silent: true));
+    } catch (e) {
+      Logs().e('ChatBloc: ошибка отправки сообщения', e);
+      try {
+        final attachmentsJson =
+            (event.attachments != null && event.attachments!.isNotEmpty)
+            ? jsonEncode(
+                event.attachments!
+                    .map((a) => {'filename': a.filename, 'fileId': a.fileId})
+                    .toList(),
+              )
+            : null;
+        final localId = newClientLocalId();
+        await savePendingMessageUseCase(
+          localId: localId,
+          peerUserId: chat.peerUserId,
+          content: text.isEmpty ? '' : text,
+          attachmentsJson: attachmentsJson,
+        );
+        final newItem = PendingQueueItem(
+          localId: localId,
+          content: text.isEmpty ? '' : text,
+          attachmentsJson: attachmentsJson,
+          createdAt: DateTime.now(),
+        );
+        emit(
+          state.copyWith(
+            isSending: false,
+            pendingQueue: [...state.pendingQueue, newItem],
+          ),
+        );
+      } catch (_) {
+        emit(
+          state.copyWith(isSending: false, error: 'Ошибка отправки сообщения'),
+        );
+      }
+    }
   }
 
   Future<void> _onCancelPendingFromQueue(

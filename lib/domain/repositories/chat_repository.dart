@@ -1,3 +1,4 @@
+import 'package:voosu/domain/entities/attachment_upload.dart';
 import 'package:voosu/domain/entities/chat.dart';
 import 'package:voosu/domain/entities/message.dart';
 
@@ -5,6 +6,20 @@ abstract class ChatRepository {
   Future<Chat> createChat(int userId);
 
   Future<List<Chat>> getChats();
+
+  Future<Message> sendMessage({
+    required int peerUserId,
+    required String content,
+    List<AttachmentUpload>? attachments,
+  });
+
+  Future<int> uploadFile({
+    required String filename,
+    String mimeType = '',
+    required Stream<List<int>> chunkStream,
+    int? totalBytes,
+    void Function(int sentBytes, int? totalBytes)? onProgress,
+  });
 
   Future<List<Message>> getHistory({
     required int peerUserId,
@@ -17,6 +32,15 @@ abstract class ChatRepository {
   Future<void> clearHistory({required int peerUserId});
 
   Future<void> deleteChat({required int peerUserId});
+
+  Future<void> savePendingMessage({
+    required String localId,
+    required int peerUserId,
+    required String content,
+    String? attachmentsJson,
+  });
+
+  Future<List<Map<String, dynamic>>> getPendingOutgoingMessages();
 
   Future<List<Map<String, dynamic>>> getPendingForChat(int chatId);
 

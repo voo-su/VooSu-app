@@ -1,13 +1,22 @@
+import 'dart:io';
+
+import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:voosu/core/layout/responsive.dart';
 import 'package:voosu/core/snackbar_ext.dart';
 import 'package:voosu/domain/entities/user.dart';
+import 'package:voosu/core/injector.dart' as di;
+import 'package:voosu/domain/entities/attachment_upload.dart';
+import 'package:voosu/domain/repositories/account_repository.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_bloc.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_event.dart';
 import 'package:voosu/presentation/screens/auth/bloc/auth_bloc.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_state.dart';
+import 'package:voosu/domain/usecases/chat/upload_chat_file_usecase.dart';
 import 'package:voosu/presentation/screens/chat/widgets/chat_widgets.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
 
 class UserChatScreen extends StatefulWidget {
   const UserChatScreen({super.key});
@@ -17,6 +26,7 @@ class UserChatScreen extends StatefulWidget {
 }
 
 class _UserChatScreenState extends State<UserChatScreen> {
+  late final TextEditingController _messageController;
   final _scrollController = ScrollController();
   bool _showUserSearch = false;
   bool _loadMoreTriggered = false;
@@ -26,6 +36,9 @@ class _UserChatScreenState extends State<UserChatScreen> {
   @override
   void initState() {
     super.initState();
+    _messageController = EmojiTextEditingController(
+      emojiTextStyle: const TextStyle(fontSize: 16),
+    );
     _scrollController.addListener(_onScrollForLoadMore);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ChatBloc>().add(const ChatStarted());
@@ -52,8 +65,87 @@ class _UserChatScreenState extends State<UserChatScreen> {
   @override
   void dispose() {
     _scrollController.removeListener(_onScrollForLoadMore);
+    _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onSendMessage(String text, {List<AttachmentUpload>? attachments}) {
+    context.read<ChatBloc>().add(
+      ChatSendMessage(text, attachments: attachments),
+    );
+  }
+
+  Future<int?> _uploadFile(
+    String filename,
+    Stream<List<int>> chunkStream,
+    int totalBytes, [
+    void Function(int sentBytes, int? totalBytes)? onProgress,
+  ]) async {
+    try {
+      final chat = context.read<ChatBloc>().state.selectedChat;
+      if (chat == null) {
+        return null;
+      }
+
+      return await di.sl<UploadChatFileUseCase>().call(
+        filename: filename,
+        chunkStream: chunkStream,
+        totalBytes: totalBytes,
+        onProgress: onProgress,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _onDownloadAttachment(int fileId, String filename) async {
+    final safeName = filename.split(RegExp(r'[/\\]')).last;
+    if (safeName.isEmpty) {
+      return;
+    }
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Скачивание...'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    try {
+      final bytes = await di.sl<AccountRepository>().getFile(fileId);
+      if (!mounted) {
+        return;
+      }
+
+      Navigator.of(context).pop();
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/$safeName');
+      await file.writeAsBytes(bytes);
+      await OpenFilex.open(file.path);
+      if (!mounted) {
+        return;
+      }
+    } catch (_) {
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Не удалось загрузить вложение')),
+        );
+      }
+    }
   }
 
   void _scrollToBottom() {
@@ -145,8 +237,17 @@ class _UserChatScreenState extends State<UserChatScreen> {
                     child: ChatMessagesList(
                       state: state,
                       scrollController: _scrollController,
+                      onDownloadAttachment: _onDownloadAttachment,
                     ),
                   ),
+                  if (!state.isSelectionMode)
+                    ChatInputBar(
+                      controller: _messageController,
+                      onSendMessage: _onSendMessage,
+                      isEnabled: !state.isSending,
+                      isSending: state.isSending,
+                      uploadFile: _uploadFile,
+                    ),
                 ],
               ),
           );
@@ -205,8 +306,17 @@ class _UserChatScreenState extends State<UserChatScreen> {
                         child: ChatMessagesList(
                           state: state,
                           scrollController: _scrollController,
+                          onDownloadAttachment: _onDownloadAttachment,
                         ),
                       ),
+                      if (selectedChat != null && !state.isSelectionMode)
+                        ChatInputBar(
+                          controller: _messageController,
+                          onSendMessage: _onSendMessage,
+                          isEnabled: !state.isSending,
+                          isSending: state.isSending,
+                          uploadFile: _uploadFile,
+                        ),
                     ],
                   ),
                 ),

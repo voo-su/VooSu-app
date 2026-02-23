@@ -33,6 +33,8 @@ class ChatMapper {
       lastMessagePreview = content.length <= maxLen
         ? content
         : content.substring(0, maxLen);
+    } else if (chat.hasLastMessage() && chat.lastMessage.attachments.isNotEmpty) {
+      lastMessagePreview = 'Вложение';
     }
 
     return Chat(

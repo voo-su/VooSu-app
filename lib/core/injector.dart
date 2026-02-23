@@ -26,6 +26,9 @@ import 'package:voosu/domain/usecases/chat/delete_chat_messages_usecase.dart';
 import 'package:voosu/domain/usecases/chat/get_chat_messages_usecase.dart';
 import 'package:voosu/domain/usecases/chat/get_pending_for_chat_usecase.dart';
 import 'package:voosu/domain/usecases/chat/remove_pending_message_usecase.dart';
+import 'package:voosu/domain/usecases/chat/save_pending_message_usecase.dart';
+import 'package:voosu/domain/usecases/chat/send_chat_message_usecase.dart';
+import 'package:voosu/domain/usecases/chat/upload_chat_file_usecase.dart';
 import 'package:voosu/domain/usecases/search/search_users_usecase.dart';
 import 'package:voosu/presentation/screens/auth/bloc/auth_bloc.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_bloc.dart';
@@ -101,8 +104,11 @@ Future<void> init() async {
   sl.registerFactory(() => GetChatsUseCase(sl()));
   sl.registerFactory(() => CreateChatUseCase(sl()));
   sl.registerFactory(() => GetChatMessagesUseCase(sl()));
+  sl.registerFactory(() => SendChatMessageUseCase(sl()));
+  sl.registerFactory(() => SavePendingMessageUseCase(sl()));
   sl.registerFactory(() => GetPendingForChatUseCase(sl()));
   sl.registerFactory(() => RemovePendingMessageUseCase(sl()));
+  sl.registerFactory(() => UploadChatFileUseCase(sl()));
   sl.registerFactory(() => DeleteChatMessagesUseCase(sl()));
   sl.registerFactory(() => ClearChatHistoryUseCase(sl()));
   sl.registerFactory(() => DeleteChatUseCase(sl()));
@@ -112,6 +118,8 @@ Future<void> init() async {
       getChatsUseCase: sl(),
       createChatUseCase: sl(),
       getChatMessagesUseCase: sl(),
+      sendChatMessageUseCase: sl(),
+      savePendingMessageUseCase: sl(),
       getPendingForChatUseCase: sl(),
       removePendingMessageUseCase: sl(),
       deleteChatMessagesUseCase: sl(),

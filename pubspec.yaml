@@ -47,7 +47,9 @@ dependencies:
   protobuf: ^6.0.0
   fixnum: ^1.1.1
   shared_preferences: ^2.5.3
+  file_picker: ^8.1.6
   path_provider: ^2.1.5
+  emoji_picker_flutter: ^4.4.0
   drift: ^2.31.0
   path: ^1.9.1
   sqlite3_flutter_libs: ^0.5.41

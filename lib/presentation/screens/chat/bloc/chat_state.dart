@@ -6,6 +6,7 @@ import 'package:voosu/domain/entities/pending_queue_item.dart';
 class ChatState extends Equatable {
   final bool isLoading;
   final bool isLoadingMore;
+  final bool isSending;
   final List<Chat> chats;
   final Chat? selectedChat;
   final List<Message> messages;
@@ -16,6 +17,7 @@ class ChatState extends Equatable {
   const ChatState({
     this.isLoading = false,
     this.isLoadingMore = false,
+    this.isSending = false,
     this.chats = const [],
     this.selectedChat,
     this.messages = const [],
@@ -29,6 +31,7 @@ class ChatState extends Equatable {
   ChatState copyWith({
     bool? isLoading,
     bool? isLoadingMore,
+    bool? isSending,
     List<Chat>? chats,
     Chat? selectedChat,
     bool clearSelectedChat = false,
@@ -42,6 +45,7 @@ class ChatState extends Equatable {
     return ChatState(
       isLoading: isLoading ?? this.isLoading,
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+      isSending: isSending ?? this.isSending,
       chats: chats ?? this.chats,
       selectedChat: clearSelectedChat
           ? null
@@ -61,6 +65,7 @@ class ChatState extends Equatable {
   List<Object?> get props => [
     isLoading,
     isLoadingMore,
+    isSending,
     chats,
     selectedChat,
     messages,
