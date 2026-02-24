@@ -48,6 +48,7 @@ dependencies:
   fixnum: ^1.1.1
   shared_preferences: ^2.5.3
   file_picker: ^8.1.6
+  desktop_drop: ^0.7.0
   path_provider: ^2.1.5
   emoji_picker_flutter: ^4.4.0
   drift: ^2.31.0

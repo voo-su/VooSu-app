@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:voosu/domain/entities/chat.dart';
 import 'package:voosu/domain/entities/message.dart';
+import 'package:voosu/presentation/screens/chat/bloc/pending_outgoing_message.dart';
 import 'package:voosu/domain/entities/pending_queue_item.dart';
 
 class ChatState extends Equatable {
@@ -13,6 +14,7 @@ class ChatState extends Equatable {
   final List<PendingQueueItem> pendingQueue;
   final Set<int> selectedMessageIds;
   final String? error;
+  final PendingOutgoingMessage? pendingOutgoingMessage;
 
   const ChatState({
     this.isLoading = false,
@@ -24,6 +26,7 @@ class ChatState extends Equatable {
     this.pendingQueue = const [],
     this.selectedMessageIds = const {},
     this.error,
+    this.pendingOutgoingMessage,
   });
 
   bool get isSelectionMode => selectedMessageIds.isNotEmpty;
@@ -41,6 +44,8 @@ class ChatState extends Equatable {
     Set<int>? selectedMessageIds,
     bool clearSelection = false,
     String? error,
+    PendingOutgoingMessage? pendingOutgoingMessage,
+    bool clearPendingOutgoing = false,
   }) {
     return ChatState(
       isLoading: isLoading ?? this.isLoading,
@@ -58,6 +63,9 @@ class ChatState extends Equatable {
           ? const {}
           : (selectedMessageIds ?? this.selectedMessageIds),
       error: error,
+      pendingOutgoingMessage: clearPendingOutgoing
+          ? null
+          : (pendingOutgoingMessage ?? this.pendingOutgoingMessage),
     );
   }
 
@@ -72,5 +80,6 @@ class ChatState extends Equatable {
     pendingQueue,
     selectedMessageIds,
     error,
+    pendingOutgoingMessage,
   ];
 }

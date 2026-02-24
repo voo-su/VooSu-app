@@ -7,6 +7,7 @@ import 'package:voosu/core/layout/responsive.dart';
 import 'package:voosu/core/snackbar_ext.dart';
 import 'package:voosu/domain/entities/user.dart';
 import 'package:voosu/core/injector.dart' as di;
+import 'package:voosu/core/file_stream.dart';
 import 'package:voosu/domain/entities/attachment_upload.dart';
 import 'package:voosu/domain/repositories/account_repository.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_bloc.dart';
@@ -74,6 +75,30 @@ class _UserChatScreenState extends State<UserChatScreen> {
     context.read<ChatBloc>().add(
       ChatSendMessage(text, attachments: attachments),
     );
+  }
+
+  Future<int?> _uploadLargeFile(
+    String path,
+    String filename,
+    int size, [
+    void Function(int sentBytes, int? totalBytes)? onProgress,
+  ]) async {
+    try {
+      final chat = context.read<ChatBloc>().state.selectedChat;
+      if (chat == null) {
+        return null;
+      }
+
+      final stream = streamFromPath(path, size);
+      return await di.sl<UploadChatFileUseCase>().call(
+        filename: filename,
+        chunkStream: stream,
+        totalBytes: size,
+        onProgress: onProgress,
+      );
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<int?> _uploadFile(
@@ -247,6 +272,7 @@ class _UserChatScreenState extends State<UserChatScreen> {
                       isEnabled: !state.isSending,
                       isSending: state.isSending,
                       uploadFile: _uploadFile,
+                      uploadLargeFile: _uploadLargeFile,
                     ),
                 ],
               ),
@@ -316,6 +342,7 @@ class _UserChatScreenState extends State<UserChatScreen> {
                           isEnabled: !state.isSending,
                           isSending: state.isSending,
                           uploadFile: _uploadFile,
+                          uploadLargeFile: _uploadLargeFile,
                         ),
                     ],
                   ),

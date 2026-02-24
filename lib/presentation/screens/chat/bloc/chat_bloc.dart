@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:voosu/core/client_local_id.dart';
 import 'package:voosu/core/log/logs.dart';
+import 'package:voosu/domain/entities/attachment_upload.dart';
 import 'package:voosu/domain/entities/chat.dart';
 import 'package:voosu/domain/entities/message.dart';
 import 'package:voosu/domain/usecases/chat/create_chat_usecase.dart';
@@ -20,6 +21,7 @@ import 'package:voosu/domain/usecases/chat/send_chat_message_usecase.dart';
 import 'package:voosu/presentation/screens/auth/bloc/auth_bloc.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_event.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_state.dart';
+import 'package:voosu/presentation/screens/chat/bloc/pending_outgoing_message.dart';
 
 class ChatBloc extends Bloc<ChatEvent, ChatState> {
   final GetChatsUseCase getChatsUseCase;
@@ -53,6 +55,11 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<ChatSelectChat>(_onSelectChat);
     on<ChatMessagesForChatLoaded>(_onMessagesForChatLoaded);
     on<ChatSendMessage>(_onSendMessage);
+    on<ChatStartSendingMessage>(_onStartSendingMessage);
+    on<ChatUploadProgress>(_onUploadProgress);
+    on<ChatUploadFileComplete>(_onUploadFileComplete);
+    on<ChatSubmitPendingMessage>(_onSubmitPendingMessage);
+    on<ChatCancelPendingMessage>(_onCancelPendingMessage);
     on<ChatClearError>(_onClearError);
     on<ChatBackToList>(_onBackToList);
     on<ChatDeleteMessage>(_onDeleteMessage);
@@ -233,6 +240,197 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       final queue = await getPendingForChatUseCase(chatId);
       emit(state.copyWith(pendingQueue: queue));
     } catch (_) {}
+  }
+
+  void _onStartSendingMessage(
+    ChatStartSendingMessage event,
+    Emitter<ChatState> emit,
+  ) {
+    final chat = state.selectedChat;
+    if (chat == null) {
+      return;
+    }
+
+    final attachments = <PendingAttachment>[];
+    if (event.attachments != null) {
+      for (final a in event.attachments!) {
+        attachments.add(
+          PendingAttachment(
+            filename: a.filename,
+            size: 0,
+            progress: 1,
+            fileId: a.fileId,
+          ),
+        );
+      }
+    }
+
+    if (event.largeFiles != null) {
+      for (final f in event.largeFiles!) {
+        attachments.add(
+          PendingAttachment(filename: f.filename, size: f.size, progress: 0),
+        );
+      }
+    }
+
+    final pending = PendingOutgoingMessage(
+      clientId: event.clientId,
+      text: event.text,
+      attachments: attachments,
+    );
+    emit(
+      state.copyWith(
+        pendingOutgoingMessage: pending,
+        isSending: true,
+        error: null,
+      ),
+    );
+  }
+
+  void _onUploadProgress(ChatUploadProgress event, Emitter<ChatState> emit) {
+    final pending = state.pendingOutgoingMessage;
+    if (pending == null || pending.clientId != event.clientId) {
+      return;
+    }
+
+    final progress = event.totalBytes != null && event.totalBytes! > 0
+        ? event.sentBytes / event.totalBytes!
+        : 0.0;
+    final updated = pending.attachments.map((a) {
+      if (a.filename != event.filename) {
+        return a;
+      }
+
+      return a.copyWith(progress: progress.clamp(0.0, 1.0));
+    }).toList();
+    emit(
+      state.copyWith(
+        pendingOutgoingMessage: pending.copyWith(attachments: updated),
+      ),
+    );
+  }
+
+  void _onUploadFileComplete(
+    ChatUploadFileComplete event,
+    Emitter<ChatState> emit,
+  ) {
+    final pending = state.pendingOutgoingMessage;
+    if (pending == null || pending.clientId != event.clientId) {
+      return;
+    }
+
+    final updated = pending.attachments.map((a) {
+      if (a.filename != event.filename) {
+        return a;
+      }
+
+      return a.copyWith(progress: 1.0, fileId: event.fileId);
+    }).toList();
+    emit(
+      state.copyWith(
+        pendingOutgoingMessage: pending.copyWith(attachments: updated),
+      ),
+    );
+  }
+
+  Future<void> _onSubmitPendingMessage(
+    ChatSubmitPendingMessage event,
+    Emitter<ChatState> emit,
+  ) async {
+    final pending = state.pendingOutgoingMessage;
+    if (pending == null || pending.clientId != event.clientId) {
+      return;
+    }
+
+    final chat = state.selectedChat;
+    if (chat == null) {
+      return;
+    }
+
+    if (!pending.allAttachmentsReady) {
+      return;
+    }
+
+    emit(
+      state.copyWith(
+        pendingOutgoingMessage: pending.copyWith(isSubmitting: true),
+      ),
+    );
+
+    final attachmentUploads = <AttachmentUpload>[];
+    for (final a in pending.attachments) {
+      if (a.fileId != null && a.fileId != 0) {
+        attachmentUploads.add(
+          AttachmentUpload(filename: a.filename, fileId: a.fileId!),
+        );
+      }
+    }
+
+    try {
+      final message = await sendChatMessageUseCase(
+        peerUserId: chat.peerUserId,
+        content: pending.text.isEmpty ? '' : pending.text,
+        attachments: attachmentUploads.isEmpty ? null : attachmentUploads,
+      );
+      final updatedMessages = [...state.messages, message];
+      emit(
+        state.copyWith(
+          isSending: false,
+          messages: updatedMessages,
+          clearPendingOutgoing: true,
+        ),
+      );
+      add(const ChatLoadChats(silent: true));
+    } catch (e) {
+      Logs().e('ChatBloc: ошибка отправки сообщения', e);
+      try {
+        final attachmentsList = pending.attachments
+          .where((a) => a.fileId != null && a.fileId != 0)
+          .map((a) => {'filename': a.filename, 'fileId': a.fileId})
+          .toList();
+        final attachmentsJson = attachmentsList.isEmpty
+          ? null
+          : jsonEncode(attachmentsList);
+        await savePendingMessageUseCase(
+          localId: pending.clientId,
+          peerUserId: chat.peerUserId,
+          content: pending.text,
+          attachmentsJson: attachmentsJson,
+        );
+        final newItem = PendingQueueItem(
+          localId: pending.clientId,
+          content: pending.text,
+          attachmentsJson: attachmentsJson,
+          createdAt: DateTime.now(),
+        );
+        emit(
+          state.copyWith(
+            isSending: false,
+            pendingQueue: [...state.pendingQueue, newItem],
+            error: 'Ошибка отправки. Сообщение добавлено в очередь.',
+            clearPendingOutgoing: true,
+          ),
+        );
+      } catch (_) {
+        emit(
+          state.copyWith(
+            isSending: false,
+            error: 'Ошибка отправки сообщения',
+            clearPendingOutgoing: true,
+          ),
+        );
+      }
+    }
+  }
+
+  void _onCancelPendingMessage(
+    ChatCancelPendingMessage event,
+    Emitter<ChatState> emit,
+  ) {
+    if (state.pendingOutgoingMessage?.clientId != event.clientId) {
+      return;
+    }
+    emit(state.copyWith(clearPendingOutgoing: true, isSending: false));
   }
 
   Future<void> _onSendMessage(

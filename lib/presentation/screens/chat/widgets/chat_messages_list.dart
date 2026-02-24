@@ -8,6 +8,7 @@ import 'package:voosu/presentation/screens/chat/widgets/chat_delete_scope_dialog
 import 'package:voosu/presentation/screens/chat/widgets/chat_empty_placeholders.dart';
 import 'package:voosu/presentation/screens/chat/widgets/message_bubble.dart';
 import 'package:voosu/presentation/screens/chat/widgets/queued_message_bubble.dart';
+import 'package:voosu/presentation/screens/chat/widgets/sending_message_bubble.dart';
 import 'package:voosu/presentation/screens/chat/widgets/service_message_widget.dart';
 import 'package:voosu/presentation/widgets/loading_placeholder.dart';
 
@@ -31,11 +32,12 @@ class ChatMessagesList extends StatelessWidget {
     }
 
     final hasQueue = state.pendingQueue.isNotEmpty;
-    if (state.isLoading && state.messages.isEmpty && !hasQueue) {
+    final hasPending = state.pendingOutgoingMessage != null;
+    if (state.isLoading && state.messages.isEmpty && !hasQueue && !hasPending) {
       return const LoadingPlaceholder();
     }
 
-    if (state.messages.isEmpty && !hasQueue) {
+    if (state.messages.isEmpty && !hasQueue && !hasPending) {
       return const ChatEmptyMessagesPlaceholder();
     }
 
@@ -56,7 +58,7 @@ class ChatMessagesList extends StatelessWidget {
 
     final messagesCount = state.messages.length;
     final queueCount = state.pendingQueue.length;
-    final totalCount = messagesCount + queueCount;
+    final totalCount = messagesCount + queueCount + (hasPending ? 1 : 0);
 
     return Container(
       color: bgColor,
@@ -109,6 +111,15 @@ class ChatMessagesList extends StatelessWidget {
               onCancel: () => context.read<ChatBloc>().add(
                 ChatCancelPendingFromQueue(queueItem.localId),
               ),
+            );
+          }
+
+          if (hasPending && index == messagesCount + queueCount) {
+            return SendingMessageBubble(
+              pending: state.pendingOutgoingMessage!,
+              bubbleColor: sentBubbleColor,
+              textColor: sentTextColor,
+              timeColor: timeColor,
             );
           }
 

@@ -1,13 +1,19 @@
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:voosu/core/attachment_type_helper.dart';
+import 'package:voosu/core/client_local_id.dart';
 import 'package:voosu/core/file_stream.dart';
 import 'package:voosu/domain/entities/attachment_upload.dart';
+import 'package:voosu/presentation/screens/chat/bloc/chat_bloc.dart';
+import 'package:voosu/presentation/screens/chat/bloc/chat_event.dart';
 
 const int _chatAttachmentMaxBytes = 10 * 1024 * 1024;
+const int _largeFileThresholdBytes = 5 * 1024 * 1024;
 
 typedef OnSendMessage = void Function(
   String text,
@@ -21,12 +27,26 @@ typedef OnUploadFile = Future<int?> Function(
   void Function(int sentBytes, int? totalBytes)? onProgress,
 ]);
 
+typedef OnUploadLargeFile = Future<int?> Function(
+  String path,
+  String filename,
+  int size, [
+  void Function(int sentBytes, int? totalBytes)? onProgress,
+]);
+
+typedef OnSendWithLargeFiles = Future<void> Function(
+  String text,
+  List<AttachmentUpload> attachments,
+);
+
 class ChatInputBar extends StatefulWidget {
   final TextEditingController controller;
   final OnSendMessage onSendMessage;
   final bool isEnabled;
   final bool isSending;
   final OnUploadFile? uploadFile;
+  final OnUploadLargeFile? uploadLargeFile;
+  final OnSendWithLargeFiles? onSendWithLargeFiles;
   final String? hintText;
 
   const ChatInputBar({
@@ -36,6 +56,8 @@ class ChatInputBar extends StatefulWidget {
     required this.isEnabled,
     required this.isSending,
     this.uploadFile,
+    this.uploadLargeFile,
+    this.onSendWithLargeFiles,
     this.hintText,
   });
 
@@ -45,6 +67,7 @@ class ChatInputBar extends StatefulWidget {
 
 class _ChatInputBarState extends State<ChatInputBar> {
   final List<PlatformFile> _selectedFiles = [];
+  bool _isDraggingFile = false;
   bool _showEmojiPicker = false;
 
   void _toggleEmojiPicker() {
@@ -73,10 +96,12 @@ class _ChatInputBarState extends State<ChatInputBar> {
           return;
         }
 
-        if (f.size > 0 && f.size > _chatAttachmentMaxBytes) {
+        if (f.path != null &&
+            f.size > _largeFileThresholdBytes &&
+            widget.uploadLargeFile == null) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Файл слишком большой: ${f.name}')),
+              const SnackBar(content: Text('Большие файлы не поддерживаются')),
             );
           }
 
@@ -86,17 +111,19 @@ class _ChatInputBarState extends State<ChatInputBar> {
     }
 
     final List<({String filename, List<int> bytes})> smallFilesToUpload = [];
+    final List<LargeFileRef> largeFileRefs = [];
 
     if (hasFiles) {
       for (final f in _selectedFiles) {
-        if (f.bytes != null && f.bytes!.isNotEmpty) {
+        if (f.path != null &&
+            f.size > _largeFileThresholdBytes &&
+            widget.uploadLargeFile != null) {
+          largeFileRefs.add(
+            LargeFileRef(path: f.path!, filename: f.name, size: f.size),
+          );
+        } else if (f.bytes != null && f.bytes!.isNotEmpty) {
           if (f.bytes!.length <= _chatAttachmentMaxBytes) {
             smallFilesToUpload.add((filename: f.name, bytes: f.bytes!));
-          } else if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Файл слишком большой: ${f.name}')),
-            );
-            return;
           }
         } else if (f.path != null) {
           try {
@@ -164,7 +191,104 @@ class _ChatInputBarState extends State<ChatInputBar> {
       }
     }
 
-    if (text.isEmpty && uploadedAttachments.isEmpty) {
+    if (text.isEmpty && uploadedAttachments.isEmpty && largeFileRefs.isEmpty) {
+      return;
+    }
+
+    if (largeFileRefs.isNotEmpty && widget.uploadLargeFile != null) {
+      if (widget.onSendWithLargeFiles != null) {
+        final allAttachments = [...uploadedAttachments];
+        for (final ref in largeFileRefs) {
+          try {
+            final fileId = await widget.uploadLargeFile!(
+              ref.path,
+              ref.filename,
+              ref.size,
+            );
+            if (fileId != null && fileId != 0) {
+              allAttachments.add(
+                AttachmentUpload(filename: ref.filename, fileId: fileId),
+              );
+            } else {
+              if (mounted && messenger != null) {
+                messenger.showSnackBar(
+                  SnackBar(content: Text('Ошибка загрузки: ${ref.filename}')),
+                );
+              }
+              return;
+            }
+          } catch (_) {
+            if (mounted && messenger != null) {
+              messenger.showSnackBar(
+                SnackBar(content: Text('Ошибка загрузки: ${ref.filename}')),
+              );
+            }
+            return;
+          }
+        }
+        final body = text.isEmpty ? '[файлы]' : text;
+        await widget.onSendWithLargeFiles!(body, allAttachments);
+        if (mounted) {
+          widget.controller.clear();
+          setState(() => _selectedFiles.clear());
+        }
+
+        return;
+      }
+
+      if (!mounted) return;
+      final bloc = context.read<ChatBloc>();
+      final clientId = newClientLocalId();
+      bloc.add(
+        ChatStartSendingMessage(
+          clientId: clientId,
+          text: text,
+          attachments: uploadedAttachments.isEmpty ? null : uploadedAttachments,
+          largeFiles: largeFileRefs,
+        ),
+      );
+      widget.controller.clear();
+      setState(() => _selectedFiles.clear());
+
+      for (final ref in largeFileRefs) {
+        try {
+          final fileId = await widget.uploadLargeFile!(
+            ref.path,
+            ref.filename,
+            ref.size,
+            (sent, total) {
+              if (mounted) {
+                bloc.add(ChatUploadProgress(clientId, ref.filename, sent, total));
+              }
+            },
+          );
+          if (fileId != null && fileId != 0 && mounted) {
+            bloc.add(ChatUploadFileComplete(clientId, ref.filename, fileId));
+          } else {
+            if (mounted && messenger != null) {
+              messenger.showSnackBar(
+                SnackBar(content: Text('Ошибка загрузки: ${ref.filename}')),
+              );
+              bloc.add(ChatCancelPendingMessage(clientId));
+            }
+
+            return;
+          }
+        } catch (_) {
+          if (mounted && messenger != null) {
+            messenger.showSnackBar(
+              SnackBar(content: Text('Ошибка загрузки: ${ref.filename}')),
+            );
+            bloc.add(ChatCancelPendingMessage(clientId));
+          }
+
+          return;
+        }
+      }
+      if (mounted) {
+        bloc.add(ChatSubmitPendingMessage(clientId));
+      }
+
       return;
     }
 
@@ -201,15 +325,6 @@ class _ChatInputBarState extends State<ChatInputBar> {
 
         continue;
       }
-      if (file.size > 0 && file.size > _chatAttachmentMaxBytes) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Файл слишком большой: ${file.name}')),
-          );
-        }
-
-        continue;
-      }
       toAdd.add(file);
     }
 
@@ -220,6 +335,90 @@ class _ChatInputBarState extends State<ChatInputBar> {
 
   void _clearFiles() {
     setState(() => _selectedFiles.clear());
+  }
+
+  Future<void> _onFilesDropped(DropDoneDetails details) async {
+    setState(() => _isDraggingFile = false);
+    if (!widget.isEnabled) {
+      return;
+    }
+
+    if (details.files.isEmpty) {
+      return;
+    }
+
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final toAdd = <PlatformFile>[];
+    for (final item in details.files) {
+      if (item is! DropItemFile) {
+        continue;
+      }
+
+      try {
+        final name = item.name.isNotEmpty
+            ? item.name
+            : item.path.split(RegExp(r'[/\\]')).last;
+        if (name.isEmpty) {
+          continue;
+        }
+
+        final size = await item.length();
+        final path = item.path;
+        if (path.isEmpty) {
+          final bytes = await item.readAsBytes();
+          if (bytes.isEmpty) {
+            continue;
+          }
+
+          if (bytes.length > _chatAttachmentMaxBytes) {
+            if (mounted && messenger != null) {
+              messenger.showSnackBar(
+                SnackBar(content: Text('Файл слишком большой: $name')),
+              );
+            }
+
+            continue;
+          }
+          toAdd.add(PlatformFile(name: name, size: bytes.length, bytes: bytes));
+        } else {
+          if (size > _largeFileThresholdBytes &&
+              widget.uploadLargeFile == null &&
+              size > _chatAttachmentMaxBytes) {
+            if (mounted && messenger != null) {
+              messenger.showSnackBar(
+                const SnackBar(
+                  content: Text('Большие файлы не поддерживаются'),
+                ),
+              );
+            }
+
+            continue;
+          }
+          if (size <= _chatAttachmentMaxBytes) {
+            final bytes = await item.readAsBytes();
+            toAdd.add(
+              PlatformFile(
+                name: name,
+                path: path,
+                size: size,
+                bytes: bytes.isEmpty ? null : bytes,
+              ),
+            );
+          } else {
+            toAdd.add(PlatformFile(name: name, path: path, size: size));
+          }
+        }
+      } catch (_) {
+        if (mounted && messenger != null) {
+          messenger.showSnackBar(
+            const SnackBar(content: Text('Не удалось добавить файл')),
+          );
+        }
+      }
+    }
+    if (toAdd.isNotEmpty && mounted) {
+      setState(() => _selectedFiles.addAll(toAdd));
+    }
   }
 
   void _removeFile(int index) {
@@ -463,7 +662,20 @@ class _ChatInputBarState extends State<ChatInputBar> {
         ),
       ),
     );
-    return content;
+    return DropTarget(
+      onDragEntered: widget.isEnabled
+          ? (_) => setState(() => _isDraggingFile = true)
+          : null,
+      onDragExited: widget.isEnabled
+          ? (_) => setState(() => _isDraggingFile = false)
+          : null,
+      onDragDone: widget.isEnabled ? _onFilesDropped : null,
+      enable: widget.isEnabled,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [content, if (_isDraggingFile) _buildDropOverlay(context)],
+      ),
+    );
   }
 
   Widget _buildEmojiPickerInline(ThemeData theme) {
@@ -506,6 +718,47 @@ class _ChatInputBarState extends State<ChatInputBar> {
     );
   }
 
+  Widget _buildDropOverlay(BuildContext context) {
+    final theme = Theme.of(context);
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 1),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primaryContainer.withValues(alpha: 0.25),
+            border: Border.all(
+              color: theme.colorScheme.primary.withValues(alpha: 0.5),
+              width: 2,
+              strokeAlign: BorderSide.strokeAlignInside,
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Center(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.upload_file_rounded,
+                    size: 48,
+                    color: theme.colorScheme.primary,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Отпустите файлы, чтобы прикрепить',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _AttachmentPreviewTile extends StatelessWidget {

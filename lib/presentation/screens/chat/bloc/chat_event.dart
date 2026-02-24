@@ -74,6 +74,89 @@ class ChatSendMessage extends ChatEvent {
   List<Object?> get props => [text, attachments];
 }
 
+class ChatStartSendingMessage extends ChatEvent {
+  final String clientId;
+  final String text;
+  final List<AttachmentUpload>? attachments;
+  final List<LargeFileRef>? largeFiles;
+
+  const ChatStartSendingMessage({
+    required this.clientId,
+    required this.text,
+    this.attachments,
+    this.largeFiles,
+  });
+
+  @override
+  List<Object?> get props => [
+    clientId,
+    text,
+    attachments,
+    largeFiles,
+  ];
+}
+
+class LargeFileRef extends Equatable {
+  final String path;
+  final String filename;
+  final int size;
+
+  const LargeFileRef({
+    required this.path,
+    required this.filename,
+    required this.size,
+  });
+
+  @override
+  List<Object?> get props => [path, filename, size];
+}
+
+class ChatUploadProgress extends ChatEvent {
+  final String clientId;
+  final String filename;
+  final int sentBytes;
+  final int? totalBytes;
+
+  const ChatUploadProgress(
+    this.clientId,
+    this.filename,
+    this.sentBytes,
+    this.totalBytes,
+  );
+
+  @override
+  List<Object?> get props => [clientId, filename, sentBytes, totalBytes];
+}
+
+class ChatUploadFileComplete extends ChatEvent {
+  final String clientId;
+  final String filename;
+  final int fileId;
+
+  const ChatUploadFileComplete(this.clientId, this.filename, this.fileId);
+
+  @override
+  List<Object?> get props => [clientId, filename, fileId];
+}
+
+class ChatSubmitPendingMessage extends ChatEvent {
+  final String clientId;
+
+  const ChatSubmitPendingMessage(this.clientId);
+
+  @override
+  List<Object?> get props => [clientId];
+}
+
+class ChatCancelPendingMessage extends ChatEvent {
+  final String clientId;
+
+  const ChatCancelPendingMessage(this.clientId);
+
+  @override
+  List<Object?> get props => [clientId];
+}
+
 class ChatClearError extends ChatEvent {
   const ChatClearError();
 }
