@@ -38,12 +38,14 @@ class PendingAttachment extends Equatable {
 class PendingOutgoingMessage extends Equatable {
   final String clientId;
   final String text;
+  final int replyToMessageId;
   final List<PendingAttachment> attachments;
   final bool isSubmitting;
 
   const PendingOutgoingMessage({
     required this.clientId,
     required this.text,
+    this.replyToMessageId = 0,
     this.attachments = const [],
     this.isSubmitting = false,
   });
@@ -51,12 +53,14 @@ class PendingOutgoingMessage extends Equatable {
   PendingOutgoingMessage copyWith({
     String? clientId,
     String? text,
+    int? replyToMessageId,
     List<PendingAttachment>? attachments,
     bool? isSubmitting,
   }) {
     return PendingOutgoingMessage(
       clientId: clientId ?? this.clientId,
       text: text ?? this.text,
+      replyToMessageId: replyToMessageId ?? this.replyToMessageId,
       attachments: attachments ?? this.attachments,
       isSubmitting: isSubmitting ?? this.isSubmitting,
     );
@@ -70,6 +74,7 @@ class PendingOutgoingMessage extends Equatable {
   List<Object?> get props => [
     clientId,
     text,
+    replyToMessageId,
     attachments,
     isSubmitting,
   ];

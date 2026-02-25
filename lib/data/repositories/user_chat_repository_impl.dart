@@ -39,12 +39,18 @@ class ChatRepositoryImpl implements ChatRepository {
   Future<Message> sendMessage({
     required int peerUserId,
     required String content,
+    int replyToMessageId = 0,
+    bool forwarded = false,
+    int forwardedFromMessageId = 0,
     List<AttachmentUpload>? attachments,
   }) async {
     try {
       return await _remote.sendMessage(
         peerUserId: peerUserId,
         content: content,
+        replyToMessageId: replyToMessageId,
+        forwarded: forwarded,
+        forwardedFromMessageId: forwardedFromMessageId,
         attachments: attachments,
       );
     } catch (e) {
@@ -141,6 +147,7 @@ class ChatRepositoryImpl implements ChatRepository {
     required int peerUserId,
     required String content,
     String? attachmentsJson,
+    int replyToId = 0,
   }) async {
     await _db?.insertPendingMessage(
       localId: localId,
@@ -148,6 +155,7 @@ class ChatRepositoryImpl implements ChatRepository {
       peerGroupId: 0,
       content: content,
       attachmentsJson: attachmentsJson,
+      replyToId: replyToId,
     );
   }
 

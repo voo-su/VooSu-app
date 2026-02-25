@@ -60,6 +60,9 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<ChatUploadFileComplete>(_onUploadFileComplete);
     on<ChatSubmitPendingMessage>(_onSubmitPendingMessage);
     on<ChatCancelPendingMessage>(_onCancelPendingMessage);
+    on<ChatReplyToMessage>(_onReplyToMessage);
+    on<ChatClearReply>(_onClearReply);
+    on<ChatForwardMessageToChat>(_onForwardMessageToChat);
     on<ChatClearError>(_onClearError);
     on<ChatBackToList>(_onBackToList);
     on<ChatDeleteMessage>(_onDeleteMessage);
@@ -78,6 +81,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       state.copyWith(
         clearSelectedChat: true,
         clearSelection: true,
+        clearReplyTo: true,
       ),
     );
   }
@@ -153,6 +157,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         isLoading: true,
         error: null,
         clearSelection: true,
+        clearReplyTo: true,
       ),
     );
 
@@ -276,6 +281,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     final pending = PendingOutgoingMessage(
       clientId: event.clientId,
       text: event.text,
+      replyToMessageId: event.replyToMessageId,
       attachments: attachments,
     );
     emit(
@@ -367,9 +373,11 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     }
 
     try {
+      final replyToId = pending.replyToMessageId;
       final message = await sendChatMessageUseCase(
         peerUserId: chat.peerUserId,
         content: pending.text.isEmpty ? '' : pending.text,
+        replyToMessageId: replyToId,
         attachments: attachmentUploads.isEmpty ? null : attachmentUploads,
       );
       final updatedMessages = [...state.messages, message];
@@ -378,6 +386,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           isSending: false,
           messages: updatedMessages,
           clearPendingOutgoing: true,
+          clearReplyTo: true,
         ),
       );
       add(const ChatLoadChats(silent: true));
@@ -396,11 +405,13 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           peerUserId: chat.peerUserId,
           content: pending.text,
           attachmentsJson: attachmentsJson,
+          replyToId: pending.replyToMessageId,
         );
         final newItem = PendingQueueItem(
           localId: pending.clientId,
           content: pending.text,
           attachmentsJson: attachmentsJson,
+          replyToId: pending.replyToMessageId,
           createdAt: DateTime.now(),
         );
         emit(
@@ -451,9 +462,11 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
     emit(state.copyWith(isSending: true, error: null));
     try {
+      final replyToId = state.replyTo?.id ?? 0;
       final message = await sendChatMessageUseCase(
         peerUserId: chat.peerUserId,
         content: text.isEmpty ? '' : text,
+        replyToMessageId: replyToId,
         attachments: event.attachments,
       );
       final updatedMessages = [...state.messages, message];
@@ -461,12 +474,14 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         state.copyWith(
           isSending: false,
           messages: updatedMessages,
+          clearReplyTo: true,
         ),
       );
       add(const ChatLoadChats(silent: true));
     } catch (e) {
       Logs().e('ChatBloc: ошибка отправки сообщения', e);
       try {
+        final replyToId = state.replyTo?.id ?? 0;
         final attachmentsJson =
             (event.attachments != null && event.attachments!.isNotEmpty)
             ? jsonEncode(
@@ -481,11 +496,13 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           peerUserId: chat.peerUserId,
           content: text.isEmpty ? '' : text,
           attachmentsJson: attachmentsJson,
+          replyToId: replyToId,
         );
         final newItem = PendingQueueItem(
           localId: localId,
           content: text.isEmpty ? '' : text,
           attachmentsJson: attachmentsJson,
+          replyToId: replyToId,
           createdAt: DateTime.now(),
         );
         emit(
@@ -520,6 +537,51 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
   void _onClearError(ChatClearError event, Emitter<ChatState> emit) {
     emit(state.copyWith(error: null));
+  }
+
+  void _onReplyToMessage(ChatReplyToMessage event, Emitter<ChatState> emit) {
+    emit(state.copyWith(replyTo: event.message));
+  }
+
+  void _onClearReply(ChatClearReply event, Emitter<ChatState> emit) {
+    emit(state.copyWith(clearReplyTo: true));
+  }
+
+  Future<void> _onForwardMessageToChat(
+    ChatForwardMessageToChat event,
+    Emitter<ChatState> emit,
+  ) async {
+    final chat = event.targetChat;
+    emit(state.copyWith(isSending: true, error: null));
+    try {
+      final forwardAttachments = event.message.attachments.isEmpty
+          ? null
+          : event.message.attachments
+                .map(
+                  (a) =>
+                      AttachmentUpload(filename: a.filename, fileId: a.fileId),
+                )
+                .toList();
+      await sendChatMessageUseCase(
+        peerUserId: chat.peerUserId,
+        content: event.message.content,
+        forwarded: true,
+        forwardedFromMessageId: event.message.id,
+        attachments: forwardAttachments,
+      );
+      emit(state.copyWith(isSending: false));
+      final selectedChat = state.selectedChat;
+      if (selectedChat?.id == chat.id) {
+        await _loadMessagesForChat(chat, emit);
+      }
+      Logs().d('ChatBloc: сообщение переслано в чат id=${chat.id}');
+      add(const ChatLoadChats(silent: true));
+    } catch (e) {
+      Logs().e('ChatBloc: ошибка пересылки сообщения', e);
+      emit(
+        state.copyWith(isSending: false, error: 'Ошибка пересылки сообщения'),
+      );
+    }
   }
 
   Future<void> _onDeleteMessage(

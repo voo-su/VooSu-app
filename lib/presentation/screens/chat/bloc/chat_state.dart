@@ -14,6 +14,7 @@ class ChatState extends Equatable {
   final List<PendingQueueItem> pendingQueue;
   final Set<int> selectedMessageIds;
   final String? error;
+  final Message? replyTo;
   final PendingOutgoingMessage? pendingOutgoingMessage;
 
   const ChatState({
@@ -26,6 +27,7 @@ class ChatState extends Equatable {
     this.pendingQueue = const [],
     this.selectedMessageIds = const {},
     this.error,
+    this.replyTo,
     this.pendingOutgoingMessage,
   });
 
@@ -44,6 +46,8 @@ class ChatState extends Equatable {
     Set<int>? selectedMessageIds,
     bool clearSelection = false,
     String? error,
+    Message? replyTo,
+    bool clearReplyTo = false,
     PendingOutgoingMessage? pendingOutgoingMessage,
     bool clearPendingOutgoing = false,
   }) {
@@ -63,6 +67,7 @@ class ChatState extends Equatable {
           ? const {}
           : (selectedMessageIds ?? this.selectedMessageIds),
       error: error,
+      replyTo: clearReplyTo ? null : (replyTo ?? this.replyTo),
       pendingOutgoingMessage: clearPendingOutgoing
           ? null
           : (pendingOutgoingMessage ?? this.pendingOutgoingMessage),
@@ -80,6 +85,7 @@ class ChatState extends Equatable {
     pendingQueue,
     selectedMessageIds,
     error,
+    replyTo,
     pendingOutgoingMessage,
   ];
 }

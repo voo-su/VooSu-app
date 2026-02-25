@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:voosu/domain/entities/message.dart';
 import 'package:voosu/presentation/screens/auth/bloc/auth_bloc.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_bloc.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_event.dart';
@@ -12,9 +13,19 @@ import 'package:voosu/presentation/screens/chat/widgets/sending_message_bubble.d
 import 'package:voosu/presentation/screens/chat/widgets/service_message_widget.dart';
 import 'package:voosu/presentation/widgets/loading_placeholder.dart';
 
+Message? _findMessage(List<Message> messages, int id) {
+  try {
+    return messages.firstWhere((m) => m.id == id);
+  } catch (_) {
+    return null;
+  }
+}
+
 class ChatMessagesList extends StatelessWidget {
   final ChatState state;
   final ScrollController scrollController;
+  final void Function(Message)? onReply;
+  final void Function(Message)? onForward;
   final Future<void> Function(int fileId, String filename)?
   onDownloadAttachment;
 
@@ -22,6 +33,8 @@ class ChatMessagesList extends StatelessWidget {
     super.key,
     required this.state,
     required this.scrollController,
+    this.onReply,
+    this.onForward,
     this.onDownloadAttachment,
   });
 
@@ -75,10 +88,32 @@ class ChatMessagesList extends StatelessWidget {
 
             final isFromMe = currentUserInt != 0 && message.senderId == currentUserInt;
             final isSelected = state.selectedMessageIds.contains(message.id);
+            final replyToMessage = message.replyToMessageId > 0
+              ? _findMessage(state.messages, message.replyToMessageId)
+              : null;
+            final chatTitle = state.selectedChat?.title ?? 'Пользователь';
+            String? senderNameFor(int userId) {
+              if (currentUserInt == 0) {
+                return null;
+              }
+
+              return userId == currentUserInt ? 'Вы' : chatTitle;
+            }
 
             return MessageBubble(
               message: message,
               isFromMe: isFromMe,
+              replyToMessage: replyToMessage,
+              replyToSenderName: replyToMessage != null
+                ? senderNameFor(replyToMessage.fromPeerUserId)
+                : null,
+              forwardedSenderName: message.forwarded
+                ? senderNameFor(message.fromPeerUserId)
+                : null,
+              onReply: onReply != null ? () => onReply?.call(message) : null,
+              onForward: onForward != null
+                ? () => onForward?.call(message)
+                : null,
               onDownloadAttachment: onDownloadAttachment,
               onDelete: () async {
                 final forEveryone = await showDeleteScopeDialog(

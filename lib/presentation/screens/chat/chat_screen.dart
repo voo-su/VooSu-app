@@ -14,8 +14,10 @@ import 'package:voosu/presentation/screens/chat/bloc/chat_bloc.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_event.dart';
 import 'package:voosu/presentation/screens/auth/bloc/auth_bloc.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_state.dart';
+import 'package:voosu/domain/entities/message.dart';
 import 'package:voosu/domain/usecases/chat/upload_chat_file_usecase.dart';
 import 'package:voosu/presentation/screens/chat/widgets/chat_widgets.dart';
+import 'package:voosu/presentation/screens/chat/widgets/forward_to_chat_dialog.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -199,6 +201,25 @@ class _UserChatScreenState extends State<UserChatScreen> {
     setState(() => _showUserSearch = false);
   }
 
+  void _onReplyToMessage(Message message) {
+    context.read<ChatBloc>().add(ChatReplyToMessage(message));
+  }
+
+  Future<void> _onForwardMessage(Message message) async {
+    final state = context.read<ChatBloc>().state;
+    final selectedChat = state.selectedChat;
+    final targetChat = await showForwardToChatDialog(
+      context: context,
+      chats: state.chats,
+      currentChat: selectedChat,
+    );
+    if (!mounted || targetChat == null) {
+      return;
+    }
+
+    context.read<ChatBloc>().add(ChatForwardMessageToChat(message, targetChat));
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<ChatBloc, ChatState>(
@@ -262,6 +283,8 @@ class _UserChatScreenState extends State<UserChatScreen> {
                     child: ChatMessagesList(
                       state: state,
                       scrollController: _scrollController,
+                      onReply: _onReplyToMessage,
+                      onForward: _onForwardMessage,
                       onDownloadAttachment: _onDownloadAttachment,
                     ),
                   ),
@@ -271,6 +294,10 @@ class _UserChatScreenState extends State<UserChatScreen> {
                       onSendMessage: _onSendMessage,
                       isEnabled: !state.isSending,
                       isSending: state.isSending,
+                      replyTo: state.replyTo,
+                      onClearReply: () => context.read<ChatBloc>().add(
+                        const ChatClearReply(),
+                      ),
                       uploadFile: _uploadFile,
                       uploadLargeFile: _uploadLargeFile,
                     ),
@@ -332,6 +359,8 @@ class _UserChatScreenState extends State<UserChatScreen> {
                         child: ChatMessagesList(
                           state: state,
                           scrollController: _scrollController,
+                          onReply: _onReplyToMessage,
+                          onForward: _onForwardMessage,
                           onDownloadAttachment: _onDownloadAttachment,
                         ),
                       ),
@@ -341,6 +370,10 @@ class _UserChatScreenState extends State<UserChatScreen> {
                           onSendMessage: _onSendMessage,
                           isEnabled: !state.isSending,
                           isSending: state.isSending,
+                          replyTo: state.replyTo,
+                          onClearReply: () => context.read<ChatBloc>().add(
+                            const ChatClearReply(),
+                          ),
                           uploadFile: _uploadFile,
                           uploadLargeFile: _uploadLargeFile,
                         ),

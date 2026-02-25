@@ -26,6 +26,9 @@ abstract class IChatRemoteDataSource {
   Future<Message> sendMessage({
     required int peerUserId,
     required String content,
+    int replyToMessageId = 0,
+    bool forwarded = false,
+    int forwardedFromMessageId = 0,
     List<AttachmentUpload>? attachments,
   });
 
@@ -99,6 +102,9 @@ class ChatRemoteDataSource implements IChatRemoteDataSource {
   Future<Message> sendMessage({
     required int peerUserId,
     required String content,
+    int replyToMessageId = 0,
+    bool forwarded = false,
+    int forwardedFromMessageId = 0,
     List<AttachmentUpload>? attachments,
   }) async {
     Logs().d('ChatRemoteDataSource: sendMessage peerUserId=$peerUserId');
@@ -112,7 +118,11 @@ class ChatRemoteDataSource implements IChatRemoteDataSource {
       final req = chatpb.SendMessageRequest(
         peer: peer,
         content: content,
-        forwarded: false,
+        replyToMessageId: replyToMessageId > 0 ? Int64(replyToMessageId) : null,
+        forwarded: forwarded,
+        forwardedFromMessageId: forwardedFromMessageId > 0
+          ? Int64(forwardedFromMessageId)
+          : null,
         attachments: attachmentProtos,
       );
       final resp = await _authGuard.execute(() => _client.sendMessage(req));

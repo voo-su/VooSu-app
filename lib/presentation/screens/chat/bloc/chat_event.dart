@@ -63,26 +63,30 @@ class ChatMessagesForChatLoaded extends ChatEvent {
 
 class ChatSendMessage extends ChatEvent {
   final String text;
+  final int replyToMessageId;
   final List<AttachmentUpload>? attachments;
 
   const ChatSendMessage(
     this.text, {
+    this.replyToMessageId = 0,
     this.attachments,
   });
 
   @override
-  List<Object?> get props => [text, attachments];
+  List<Object?> get props => [text, replyToMessageId, attachments];
 }
 
 class ChatStartSendingMessage extends ChatEvent {
   final String clientId;
   final String text;
+  final int replyToMessageId;
   final List<AttachmentUpload>? attachments;
   final List<LargeFileRef>? largeFiles;
 
   const ChatStartSendingMessage({
     required this.clientId,
     required this.text,
+    this.replyToMessageId = 0,
     this.attachments,
     this.largeFiles,
   });
@@ -91,6 +95,7 @@ class ChatStartSendingMessage extends ChatEvent {
   List<Object?> get props => [
     clientId,
     text,
+    replyToMessageId,
     attachments,
     largeFiles,
   ];
@@ -155,6 +160,29 @@ class ChatCancelPendingMessage extends ChatEvent {
 
   @override
   List<Object?> get props => [clientId];
+}
+
+class ChatReplyToMessage extends ChatEvent {
+  final Message message;
+
+  const ChatReplyToMessage(this.message);
+
+  @override
+  List<Object?> get props => [message];
+}
+
+class ChatClearReply extends ChatEvent {
+  const ChatClearReply();
+}
+
+class ChatForwardMessageToChat extends ChatEvent {
+  final Message message;
+  final Chat targetChat;
+
+  const ChatForwardMessageToChat(this.message, this.targetChat);
+
+  @override
+  List<Object?> get props => [message, targetChat];
 }
 
 class ChatClearError extends ChatEvent {

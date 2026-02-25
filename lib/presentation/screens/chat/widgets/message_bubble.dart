@@ -2,13 +2,50 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:voosu/core/attachment_type_helper.dart';
 import 'package:voosu/core/date_formatter.dart';
+import 'package:voosu/domain/entities/chat_attachment.dart';
 import 'package:voosu/domain/entities/message.dart';
 import 'package:voosu/presentation/screens/chat/widgets/chat_attachment_view.dart';
+
+String _attachmentTypeLabel(ChatAttachment att) {
+  int type = att.type;
+  if (type == 0) {
+    if (AttachmentType.isImageFilename(att.filename)) {
+      return 'Фотография';
+    }
+
+    if (AttachmentType.isVideoFilename(att.filename)) {
+      return 'Видео';
+    }
+
+    if (AttachmentType.isAudioFilename(att.filename)) {
+      return 'Аудио';
+    }
+
+    return 'Документ';
+  }
+
+  switch (type) {
+    case AttachmentType.image:
+      return 'Фотография';
+    case AttachmentType.video:
+      return 'Видео';
+    case AttachmentType.audio:
+      return 'Аудио';
+    case AttachmentType.document:
+    default:
+      return 'Документ';
+  }
+}
 
 class MessageBubble extends StatelessWidget {
   final Message message;
   final bool isFromMe;
+  final Message? replyToMessage;
+  final String? replyToSenderName;
+  final String? forwardedSenderName;
   final VoidCallback? onDelete;
+  final VoidCallback? onReply;
+  final VoidCallback? onForward;
   final Future<void> Function(int fileId, String filename)?
   onDownloadAttachment;
   final bool isSelectionMode;
@@ -19,7 +56,12 @@ class MessageBubble extends StatelessWidget {
     super.key,
     required this.message,
     required this.isFromMe,
+    this.replyToMessage,
+    this.replyToSenderName,
+    this.forwardedSenderName,
     this.onDelete,
+    this.onReply,
+    this.onForward,
     this.onDownloadAttachment,
     this.isSelectionMode = false,
     this.isSelected = false,
@@ -36,6 +78,8 @@ class MessageBubble extends StatelessWidget {
     Offset? globalPosition,
     String? copyableText,
     VoidCallback? onDelete,
+    VoidCallback? onReply,
+    VoidCallback? onForward,
     VoidCallback? onToggleSelection,
   ) {
     final RenderBox? box = context.findRenderObject() as RenderBox?;
@@ -62,6 +106,34 @@ class MessageBubble extends StatelessWidget {
               Icon(Icons.copy_rounded, size: 20),
               SizedBox(width: 8),
               Text('Копировать'),
+            ],
+          ),
+        ),
+      );
+    }
+    if (onReply != null) {
+      items.add(
+        const PopupMenuItem<String>(
+          value: 'reply',
+          child: Row(
+            children: [
+              Icon(Icons.reply_rounded, size: 20),
+              SizedBox(width: 8),
+              Text('Ответить'),
+            ],
+          ),
+        ),
+      );
+    }
+    if (onForward != null) {
+      items.add(
+        const PopupMenuItem<String>(
+          value: 'forward',
+          child: Row(
+            children: [
+              Icon(Icons.forward_rounded, size: 20),
+              SizedBox(width: 8),
+              Text('Переслать'),
             ],
           ),
         ),
@@ -105,6 +177,14 @@ class MessageBubble extends StatelessWidget {
           copyableText.trim().isNotEmpty) {
         await Clipboard.setData(ClipboardData(text: copyableText));
       }
+      if (value == 'reply') {
+        onReply?.call();
+      }
+
+      if (value == 'forward') {
+        onForward?.call();
+      }
+
       if (value == 'delete') {
         onDelete?.call();
       }
@@ -142,10 +222,15 @@ class MessageBubble extends StatelessWidget {
         : null;
     final showContextMenu =
         !isSelectionMode &&
-        (onDelete != null || onToggleSelection != null);
+        (onReply != null ||
+            onForward != null ||
+            onDelete != null ||
+            onToggleSelection != null);
 
-    final useNarrowWidth = message.attachments.isNotEmpty &&
-        message.attachments.every((a) => a.type == AttachmentType.audio);
+    final useNarrowWidth =
+        replyToMessage != null ||
+        (message.attachments.isNotEmpty &&
+            message.attachments.every((a) => a.type == AttachmentType.audio));
     return LayoutBuilder(
       builder: (context, constraints) {
         final maxBubbleWidth =
@@ -177,6 +262,8 @@ class MessageBubble extends StatelessWidget {
                         null,
                         message.content,
                         onDelete,
+                        onReply,
+                        onForward,
                         onToggleSelection,
                       )
                     : (isFromMe && onToggleSelection != null
@@ -188,6 +275,8 @@ class MessageBubble extends StatelessWidget {
                         details.globalPosition,
                         message.content,
                         onDelete,
+                        onReply,
+                        onForward,
                         onToggleSelection,
                       )
                     : null,
@@ -218,6 +307,128 @@ class MessageBubble extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
+                      if (message.forwarded) ...[
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.forward_rounded,
+                                size: 14,
+                                color: textColor.withValues(alpha: 0.8),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Переслано',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: textColor.withValues(alpha: 0.8),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              if (forwardedSenderName != null &&
+                                  forwardedSenderName!.isNotEmpty) ...[
+                                const SizedBox(width: 4),
+                                Text(
+                                  'от $forwardedSenderName',
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: textColor.withValues(alpha: 0.75),
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                ),
+                              ],
+                              if (message.forwardedFromMessageDeleted) ...[
+                                const SizedBox(width: 4),
+                                Text(
+                                  '(удалённое сообщение)',
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: textColor.withValues(alpha: 0.6),
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                      if (message.replyToMessageId > 0) ...[
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.only(bottom: 6),
+                          decoration: BoxDecoration(
+                            border: Border(
+                              left: BorderSide(
+                                color: textColor.withValues(alpha: 0.6),
+                                width: 3,
+                              ),
+                            ),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: 8),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Ответ на сообщение',
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: textColor.withValues(alpha: 0.85),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                if (replyToMessage != null &&
+                                    replyToSenderName != null &&
+                                    replyToSenderName!.isNotEmpty) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'от $replyToSenderName',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: textColor.withValues(alpha: 0.75),
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                                const SizedBox(height: 2),
+                                if (replyToMessage != null)
+                                  SelectableText(
+                                    replyToMessage!.content,
+                                    maxLines: 2,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: textColor.withValues(alpha: 0.9),
+                                      fontSize: 13,
+                                    ),
+                                  )
+                                else
+                                  Text(
+                                    'Удалённое сообщение',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: textColor.withValues(alpha: 0.6),
+                                      fontSize: 13,
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                if (replyToMessage != null &&
+                                    replyToMessage!.attachments.isNotEmpty) ...[
+                                  const SizedBox(height: 6),
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 6,
+                                    children: replyToMessage!.attachments.map((
+                                      att,
+                                    ) {
+                                      return _AttachmentPreviewTile(
+                                        attachment: att,
+                                        textColor: textColor,
+                                        typeLabel: _attachmentTypeLabel(att),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                       if (message.attachments.isNotEmpty) ...[
                         const SizedBox(height: 4),
                         ...message.attachments.map(
@@ -282,6 +493,77 @@ class MessageBubble extends StatelessWidget {
           child: row,
         );
       },
+    );
+  }
+}
+
+class _AttachmentPreviewTile extends StatelessWidget {
+  final ChatAttachment attachment;
+  final Color textColor;
+  final String? typeLabel;
+
+  const _AttachmentPreviewTile({
+    required this.attachment,
+    required this.textColor,
+    this.typeLabel,
+  });
+
+  static const double _size = 52;
+
+  IconData get _icon {
+    switch (attachment.type) {
+      case AttachmentType.image:
+        return Icons.image_outlined;
+      case AttachmentType.video:
+        return Icons.videocam_rounded;
+      case AttachmentType.audio:
+        return Icons.audiotrack_rounded;
+      case AttachmentType.document:
+      case AttachmentType.unknown:
+      default:
+        return Icons.attach_file_rounded;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tile = Tooltip(
+      message: attachment.filename,
+      child: Container(
+        width: _size,
+        height: _size,
+        decoration: BoxDecoration(
+          color: textColor.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Icon(
+          _icon,
+          size: 24,
+          color: textColor.withValues(alpha: 0.8),
+        ),
+      ),
+    );
+
+    if (typeLabel == null || typeLabel!.isEmpty) {
+      return tile;
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        tile,
+        const SizedBox(height: 4),
+        Text(
+          typeLabel!,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: textColor.withValues(alpha: 0.85),
+            fontSize: 11,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
     );
   }
 }

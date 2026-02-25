@@ -10,6 +10,9 @@ abstract class ChatRepository {
   Future<Message> sendMessage({
     required int peerUserId,
     required String content,
+    int replyToMessageId = 0,
+    bool forwarded = false,
+    int forwardedFromMessageId = 0,
     List<AttachmentUpload>? attachments,
   });
 
@@ -38,6 +41,7 @@ abstract class ChatRepository {
     required int peerUserId,
     required String content,
     String? attachmentsJson,
+    int replyToId = 0,
   });
 
   Future<List<Map<String, dynamic>>> getPendingOutgoingMessages();

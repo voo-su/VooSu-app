@@ -10,10 +10,12 @@ class SavePendingMessageUseCase {
     required int peerUserId,
     required String content,
     String? attachmentsJson,
+    int replyToId = 0,
   }) => repo.savePendingMessage(
     localId: localId,
     peerUserId: peerUserId,
     content: content,
     attachmentsJson: attachmentsJson,
+    replyToId: replyToId,
   );
 }

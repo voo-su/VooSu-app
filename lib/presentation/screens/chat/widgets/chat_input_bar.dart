@@ -9,6 +9,7 @@ import 'package:voosu/core/attachment_type_helper.dart';
 import 'package:voosu/core/client_local_id.dart';
 import 'package:voosu/core/file_stream.dart';
 import 'package:voosu/domain/entities/attachment_upload.dart';
+import 'package:voosu/domain/entities/message.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_bloc.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_event.dart';
 
@@ -44,6 +45,8 @@ class ChatInputBar extends StatefulWidget {
   final OnSendMessage onSendMessage;
   final bool isEnabled;
   final bool isSending;
+  final Message? replyTo;
+  final VoidCallback? onClearReply;
   final OnUploadFile? uploadFile;
   final OnUploadLargeFile? uploadLargeFile;
   final OnSendWithLargeFiles? onSendWithLargeFiles;
@@ -55,6 +58,8 @@ class ChatInputBar extends StatefulWidget {
     required this.onSendMessage,
     required this.isEnabled,
     required this.isSending,
+    this.replyTo,
+    this.onClearReply,
     this.uploadFile,
     this.uploadLargeFile,
     this.onSendWithLargeFiles,
@@ -195,6 +200,8 @@ class _ChatInputBarState extends State<ChatInputBar> {
       return;
     }
 
+    final replyToId = widget.replyTo?.id ?? 0;
+
     if (largeFileRefs.isNotEmpty && widget.uploadLargeFile != null) {
       if (widget.onSendWithLargeFiles != null) {
         final allAttachments = [...uploadedAttachments];
@@ -243,6 +250,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
         ChatStartSendingMessage(
           clientId: clientId,
           text: text,
+          replyToMessageId: replyToId,
           attachments: uploadedAttachments.isEmpty ? null : uploadedAttachments,
           largeFiles: largeFileRefs,
         ),
@@ -445,6 +453,103 @@ class _ChatInputBarState extends State<ChatInputBar> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (widget.replyTo != null) ...[
+              Container(
+                margin: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primaryContainer.withValues(
+                    alpha: 0.5,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border(
+                    left: BorderSide(
+                      color: theme.colorScheme.primary,
+                      width: 3,
+                    ),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.reply_rounded,
+                      size: 18,
+                      color: theme.colorScheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Ответ на сообщение',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            widget.replyTo!.content,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          if (widget.replyTo!.attachments.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.attach_file_rounded,
+                                  size: 14,
+                                  color: theme.colorScheme.primary.withValues(
+                                    alpha: 0.9,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    widget.replyTo!.attachments.length == 1
+                                        ? widget
+                                              .replyTo!
+                                              .attachments
+                                              .first
+                                              .filename
+                                        : 'Вложения (${widget.replyTo!.attachments.length})',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: theme.colorScheme.primary
+                                          .withValues(alpha: 0.9),
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    if (widget.onClearReply != null)
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 20),
+                        onPressed: widget.onClearReply,
+                        style: IconButton.styleFrom(
+                          padding: const EdgeInsets.all(4),
+                          minimumSize: const Size(32, 32),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
             if (_selectedFiles.isNotEmpty) ...[
               Container(
                 margin: const EdgeInsets.only(bottom: 6),
