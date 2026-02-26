@@ -16,8 +16,10 @@ import 'package:voosu/presentation/screens/auth/bloc/auth_bloc.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_state.dart';
 import 'package:voosu/domain/entities/message.dart';
 import 'package:voosu/domain/usecases/chat/upload_chat_file_usecase.dart';
+import 'package:voosu/presentation/screens/chat/create_group_chat_screen.dart';
 import 'package:voosu/presentation/screens/chat/widgets/chat_widgets.dart';
 import 'package:voosu/presentation/screens/chat/widgets/forward_to_chat_dialog.dart';
+import 'package:voosu/presentation/screens/chat/widgets/create_poll_dialog.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -196,6 +198,18 @@ class _UserChatScreenState extends State<UserChatScreen> {
     setState(() => _showUserSearch = false);
   }
 
+  void _openCreateGroup() {
+    final chatBloc = context.read<ChatBloc>();
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => BlocProvider.value(
+          value: chatBloc,
+          child: const CreateGroupChatScreen(),
+        ),
+      ),
+    );
+  }
+
   void _onSearchUserSelected(User user) {
     context.read<ChatBloc>().add(ChatOpenWithUser(user.id));
     setState(() => _showUserSearch = false);
@@ -218,6 +232,31 @@ class _UserChatScreenState extends State<UserChatScreen> {
     }
 
     context.read<ChatBloc>().add(ChatForwardMessageToChat(message, targetChat));
+  }
+
+  void _onVotePoll(int messageId, int optionId) {
+    if (!mounted) {
+      return;
+    }
+
+    context.read<ChatBloc>().add(ChatVotePoll(messageId, optionId));
+  }
+
+  Future<void> _openCreatePoll() async {
+    if (!mounted) {
+      return;
+    }
+
+    final result = await CreatePollDialog.show(context);
+    if (!mounted || result == null) {
+      return;
+    }
+
+    context.read<ChatBloc>().add(ChatCreatePoll(
+      question: result.question,
+      options: result.options,
+      anonymous: result.anonymous,
+    ));
   }
 
   @override
@@ -257,6 +296,11 @@ class _UserChatScreenState extends State<UserChatScreen> {
                         ? null
                         : [
                             IconButton(
+                              icon: const Icon(Icons.group_add_rounded),
+                              tooltip: 'Новый групповой чат',
+                              onPressed: _openCreateGroup,
+                            ),
+                            IconButton(
                               icon: const Icon(Icons.person_search_rounded),
                               tooltip: 'Найти пользователя',
                               onPressed: _openUserSearch,
@@ -285,6 +329,7 @@ class _UserChatScreenState extends State<UserChatScreen> {
                       scrollController: _scrollController,
                       onReply: _onReplyToMessage,
                       onForward: _onForwardMessage,
+                      onVotePoll: _onVotePoll,
                       onDownloadAttachment: _onDownloadAttachment,
                     ),
                   ),
@@ -300,6 +345,9 @@ class _UserChatScreenState extends State<UserChatScreen> {
                       ),
                       uploadFile: _uploadFile,
                       uploadLargeFile: _uploadLargeFile,
+                      onCreatePoll: state.selectedChat?.isGroup == true
+                        ? _openCreatePoll
+                        : null,
                     ),
                 ],
               ),
@@ -329,6 +377,7 @@ class _UserChatScreenState extends State<UserChatScreen> {
                       isSearchMode: _showUserSearch,
                       onSearch: _openUserSearch,
                       onCloseSearch: _closeUserSearch,
+                      onCreateGroup: _openCreateGroup,
                     ),
                     Expanded(
                       child: _showUserSearch
@@ -361,6 +410,7 @@ class _UserChatScreenState extends State<UserChatScreen> {
                           scrollController: _scrollController,
                           onReply: _onReplyToMessage,
                           onForward: _onForwardMessage,
+                          onVotePoll: _onVotePoll,
                           onDownloadAttachment: _onDownloadAttachment,
                         ),
                       ),
@@ -376,6 +426,7 @@ class _UserChatScreenState extends State<UserChatScreen> {
                           ),
                           uploadFile: _uploadFile,
                           uploadLargeFile: _uploadLargeFile,
+                          onCreatePoll: selectedChat.isGroup ? _openCreatePoll : null,
                         ),
                     ],
                   ),
@@ -393,11 +444,13 @@ class _ChatListPanelHeader extends StatelessWidget {
   final bool isSearchMode;
   final VoidCallback onSearch;
   final VoidCallback onCloseSearch;
+  final VoidCallback? onCreateGroup;
 
   const _ChatListPanelHeader({
     required this.isSearchMode,
     required this.onSearch,
     required this.onCloseSearch,
+    this.onCreateGroup,
   });
 
   @override
@@ -438,6 +491,12 @@ class _ChatListPanelHeader extends StatelessWidget {
           ),
           const Spacer(),
           if (!isSearchMode) ...[
+            if (onCreateGroup != null)
+              IconButton(
+                icon: const Icon(Icons.group_add_rounded),
+                tooltip: 'Новый групповой чат',
+                onPressed: onCreateGroup,
+              ),
             IconButton(
               icon: const Icon(Icons.person_search_rounded),
               tooltip: 'Найти пользователя',

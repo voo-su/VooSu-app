@@ -5,5 +5,8 @@ class ClearChatHistoryUseCase {
 
   ClearChatHistoryUseCase(this.repo);
 
-  Future<void> call({required int peerUserId}) => repo.clearHistory(peerUserId: peerUserId);
+  Future<void> call({int? peerUserId, int? peerGroupId}) => repo.clearHistory(
+    peerUserId: peerUserId,
+    peerGroupId: peerGroupId,
+  );
 }

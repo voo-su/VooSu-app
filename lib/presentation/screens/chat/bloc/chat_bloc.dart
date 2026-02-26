@@ -3,11 +3,13 @@ import 'dart:convert';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:voosu/core/client_local_id.dart';
+import 'package:voosu/core/failures.dart';
 import 'package:voosu/core/log/logs.dart';
 import 'package:voosu/domain/entities/attachment_upload.dart';
 import 'package:voosu/domain/entities/chat.dart';
 import 'package:voosu/domain/entities/message.dart';
 import 'package:voosu/domain/usecases/chat/create_chat_usecase.dart';
+import 'package:voosu/domain/usecases/chat/create_group_chat_usecase.dart';
 import 'package:voosu/domain/usecases/chat/clear_chat_history_usecase.dart';
 import 'package:voosu/domain/usecases/chat/delete_chat_usecase.dart';
 import 'package:voosu/domain/usecases/chat/delete_chat_messages_usecase.dart';
@@ -18,6 +20,7 @@ import 'package:voosu/domain/usecases/chat/get_pending_for_chat_usecase.dart';
 import 'package:voosu/domain/usecases/chat/remove_pending_message_usecase.dart';
 import 'package:voosu/domain/usecases/chat/save_pending_message_usecase.dart';
 import 'package:voosu/domain/usecases/chat/send_chat_message_usecase.dart';
+import 'package:voosu/domain/usecases/chat/chat_poll_usecase.dart';
 import 'package:voosu/presentation/screens/auth/bloc/auth_bloc.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_event.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_state.dart';
@@ -26,6 +29,7 @@ import 'package:voosu/presentation/screens/chat/bloc/pending_outgoing_message.da
 class ChatBloc extends Bloc<ChatEvent, ChatState> {
   final GetChatsUseCase getChatsUseCase;
   final CreateChatUseCase createChatUseCase;
+  final CreateGroupChatUseCase createGroupChatUseCase;
   final GetChatMessagesUseCase getChatMessagesUseCase;
   final SendChatMessageUseCase sendChatMessageUseCase;
   final SavePendingMessageUseCase savePendingMessageUseCase;
@@ -34,11 +38,13 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   final DeleteChatMessagesUseCase deleteChatMessagesUseCase;
   final ClearChatHistoryUseCase clearChatHistoryUseCase;
   final DeleteChatUseCase deleteChatUseCase;
+  final ChatPollUseCase chatPollUseCase;
   final AuthBloc authBloc;
 
   ChatBloc({
     required this.getChatsUseCase,
     required this.createChatUseCase,
+    required this.createGroupChatUseCase,
     required this.getChatMessagesUseCase,
     required this.sendChatMessageUseCase,
     required this.savePendingMessageUseCase,
@@ -47,11 +53,13 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     required this.deleteChatMessagesUseCase,
     required this.clearChatHistoryUseCase,
     required this.deleteChatUseCase,
+    required this.chatPollUseCase,
     required this.authBloc,
   }) : super(const ChatState()) {
     on<ChatStarted>(_onStarted);
     on<ChatLoadChats>(_onLoadChats);
     on<ChatOpenWithUser>(_onOpenWithUser);
+    on<ChatCreateGroupRequested>(_onCreateGroupRequested);
     on<ChatSelectChat>(_onSelectChat);
     on<ChatMessagesForChatLoaded>(_onMessagesForChatLoaded);
     on<ChatSendMessage>(_onSendMessage);
@@ -74,6 +82,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<ChatDeleteChat>(_onDeleteChat);
     on<ChatLoadMoreMessages>(_onLoadMoreMessages);
     on<ChatCancelPendingFromQueue>(_onCancelPendingFromQueue);
+    on<ChatVotePoll>(_onVotePoll);
+    on<ChatCreatePoll>(_onCreatePoll);
   }
 
   void _onBackToList(ChatBackToList event, Emitter<ChatState> emit) {
@@ -145,6 +155,40 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     }
   }
 
+  Future<void> _onCreateGroupRequested(
+    ChatCreateGroupRequested event,
+    Emitter<ChatState> emit,
+  ) async {
+    if (event.title.trim().isEmpty) {
+      emit(state.copyWith(error: 'Введите название группы'));
+      return;
+    }
+
+    if (event.userIds.isEmpty) {
+      emit(state.copyWith(error: 'Добавьте хотя бы одного участника'));
+      return;
+    }
+
+    emit(state.copyWith(isLoading: true, error: null));
+    try {
+      final chat = await createGroupChatUseCase(
+        title: event.title.trim(),
+        userIds: event.userIds,
+      );
+      final chats = await getChatsUseCase();
+      emit(state.copyWith(isLoading: false, chats: chats, selectedChat: chat));
+      await _loadMessagesForChat(chat, emit);
+    } catch (e) {
+      Logs().e('ChatBloc: ошибка создания группового чата', e);
+      emit(
+        state.copyWith(
+          isLoading: false,
+          error: 'Ошибка создания группового чата',
+        ),
+      );
+    }
+  }
+
   Future<void> _onSelectChat(
     ChatSelectChat event,
     Emitter<ChatState> emit,
@@ -169,8 +213,11 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     List<Chat> updatedChats;
     List<PendingQueueItem> pendingQueue = const [];
     try {
+      final peerUserId = chat.isGroup ? null : chat.peerUserId;
+      final peerGroupId = chat.isGroup ? chat.peerGroupId : null;
       messages = await getChatMessagesUseCase(
-        peerUserId: chat.peerUserId,
+        peerUserId: peerUserId,
+        peerGroupId: peerGroupId,
         messageId: 0,
         limit: 100,
       );
@@ -213,8 +260,11 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
   Future<void> _loadMessagesForChat(Chat chat, Emitter<ChatState> emit) async {
     try {
+      final peerUserId = chat.isGroup ? null : chat.peerUserId;
+      final peerGroupId = chat.isGroup ? chat.peerGroupId : null;
       final messages = await getChatMessagesUseCase(
-        peerUserId: chat.peerUserId,
+        peerUserId: peerUserId,
+        peerGroupId: peerGroupId,
         messageId: 0,
         limit: 100,
       );
@@ -375,7 +425,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     try {
       final replyToId = pending.replyToMessageId;
       final message = await sendChatMessageUseCase(
-        peerUserId: chat.peerUserId,
+        peerUserId: chat.isGroup ? null : chat.peerUserId,
+        peerGroupId: chat.isGroup ? chat.peerGroupId : null,
         content: pending.text.isEmpty ? '' : pending.text,
         replyToMessageId: replyToId,
         attachments: attachmentUploads.isEmpty ? null : attachmentUploads,
@@ -393,6 +444,12 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     } catch (e) {
       Logs().e('ChatBloc: ошибка отправки сообщения', e);
       try {
+        final peerUserId = chat.isGroup
+          ? 0
+          : chat.peerUserId;
+        final peerGroupId = chat.isGroup
+          ? chat.peerGroupId
+          : 0;
         final attachmentsList = pending.attachments
           .where((a) => a.fileId != null && a.fileId != 0)
           .map((a) => {'filename': a.filename, 'fileId': a.fileId})
@@ -402,7 +459,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           : jsonEncode(attachmentsList);
         await savePendingMessageUseCase(
           localId: pending.clientId,
-          peerUserId: chat.peerUserId,
+          peerUserId: peerUserId,
+          peerGroupId: peerGroupId,
           content: pending.text,
           attachmentsJson: attachmentsJson,
           replyToId: pending.replyToMessageId,
@@ -464,7 +522,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     try {
       final replyToId = state.replyTo?.id ?? 0;
       final message = await sendChatMessageUseCase(
-        peerUserId: chat.peerUserId,
+        peerUserId: chat.isGroup ? null : chat.peerUserId,
+        peerGroupId: chat.isGroup ? chat.peerGroupId : null,
         content: text.isEmpty ? '' : text,
         replyToMessageId: replyToId,
         attachments: event.attachments,
@@ -481,6 +540,12 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     } catch (e) {
       Logs().e('ChatBloc: ошибка отправки сообщения', e);
       try {
+        final peerUserId = chat.isGroup
+            ? 0
+            : chat.peerUserId;
+        final peerGroupId = chat.isGroup
+            ? chat.peerGroupId
+            : 0;
         final replyToId = state.replyTo?.id ?? 0;
         final attachmentsJson =
             (event.attachments != null && event.attachments!.isNotEmpty)
@@ -493,7 +558,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         final localId = newClientLocalId();
         await savePendingMessageUseCase(
           localId: localId,
-          peerUserId: chat.peerUserId,
+          peerUserId: peerUserId,
+          peerGroupId: peerGroupId,
           content: text.isEmpty ? '' : text,
           attachmentsJson: attachmentsJson,
           replyToId: replyToId,
@@ -563,7 +629,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
                 )
                 .toList();
       await sendChatMessageUseCase(
-        peerUserId: chat.peerUserId,
+        peerUserId: chat.isGroup ? null : chat.peerUserId,
+        peerGroupId: chat.isGroup ? chat.peerGroupId : null,
         content: event.message.content,
         forwarded: true,
         forwardedFromMessageId: event.message.id,
@@ -663,6 +730,55 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     emit(state.copyWith(selectedMessageIds: myIds));
   }
 
+  Future<void> _onVotePoll(
+    ChatVotePoll event,
+    Emitter<ChatState> emit,
+  ) async {
+    final chat = state.selectedChat;
+    if (chat == null || !chat.isGroup) {
+      return;
+    }
+
+    try {
+      await chatPollUseCase.votePoll(
+        groupId: chat.peerGroupId,
+        messageId: event.messageId,
+        optionId: event.optionId,
+      );
+      await _loadMessagesForChat(chat, emit);
+    } on Failure catch (e) {
+      emit(state.copyWith(error: e.message));
+    } catch (_) {
+      emit(state.copyWith(error: 'Не удалось проголосовать'));
+    }
+  }
+
+  Future<void> _onCreatePoll(
+    ChatCreatePoll event,
+    Emitter<ChatState> emit,
+  ) async {
+    final chat = state.selectedChat;
+    if (chat == null || !chat.isGroup) {
+      emit(state.copyWith(error: 'Опрос можно создать только в группе'));
+      return;
+    }
+
+    try {
+      final message = await chatPollUseCase.createPoll(
+        groupId: chat.peerGroupId,
+        question: event.question,
+        options: event.options,
+        anonymous: event.anonymous,
+      );
+      final updated = List<Message>.from(state.messages)..insert(0, message);
+      emit(state.copyWith(messages: updated, error: null));
+    } on Failure catch (e) {
+      emit(state.copyWith(error: e.message));
+    } catch (_) {
+      emit(state.copyWith(error: 'Не удалось создать опрос'));
+    }
+  }
+
   Future<void> _onLoadMoreMessages(
     ChatLoadMoreMessages event,
     Emitter<ChatState> emit,
@@ -678,8 +794,11 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
     emit(state.copyWith(isLoadingMore: true));
     try {
+      final peerUserId = chat.isGroup ? null : chat.peerUserId;
+      final peerGroupId = chat.isGroup ? chat.peerGroupId : null;
       final older = await getChatMessagesUseCase(
-        peerUserId: chat.peerUserId,
+        peerUserId: peerUserId,
+        peerGroupId: peerGroupId,
         messageId: oldestId,
         limit: 50,
       );
@@ -708,8 +827,11 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
     emit(state.copyWith(error: null));
     try {
+      final peerUserId = chat.isGroup ? null : chat.peerUserId;
+      final peerGroupId = chat.isGroup ? chat.peerGroupId : null;
       await clearChatHistoryUseCase(
-        peerUserId: chat.peerUserId,
+        peerUserId: peerUserId,
+        peerGroupId: peerGroupId,
       );
       emit(state.copyWith(messages: const []));
       add(const ChatLoadChats(silent: true));
@@ -725,8 +847,11 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   ) async {
     emit(state.copyWith(error: null));
     try {
+      final peerUserId = event.chat.isGroup ? null : event.chat.peerUserId;
+      final peerGroupId = event.chat.isGroup ? event.chat.peerGroupId : null;
       await deleteChatUseCase(
-        peerUserId: event.chat.peerUserId,
+        peerUserId: peerUserId,
+        peerGroupId: peerGroupId,
       );
       final updatedChats = state.chats.where((c) => c.id != event.chat.id).toList();
       final isDeletingSelected = state.selectedChat?.id == event.chat.id;

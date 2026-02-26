@@ -35,6 +35,16 @@ class ChatOpenWithUser extends ChatEvent {
   List<Object?> get props => [userId];
 }
 
+class ChatCreateGroupRequested extends ChatEvent {
+  final String title;
+  final List<int> userIds;
+
+  const ChatCreateGroupRequested(this.title, this.userIds);
+
+  @override
+  List<Object?> get props => [title, userIds];
+}
+
 class ChatSelectChat extends ChatEvent {
   final Chat chat;
 
@@ -255,3 +265,27 @@ class ChatCancelPendingFromQueue extends ChatEvent {
   List<Object?> get props => [localId];
 }
 
+class ChatVotePoll extends ChatEvent {
+  final int messageId;
+  final int optionId;
+
+  const ChatVotePoll(this.messageId, this.optionId);
+
+  @override
+  List<Object?> get props => [messageId, optionId];
+}
+
+class ChatCreatePoll extends ChatEvent {
+  final String question;
+  final List<String> options;
+  final bool anonymous;
+
+  const ChatCreatePoll({
+    required this.question,
+    required this.options,
+    required this.anonymous,
+  });
+
+  @override
+  List<Object?> get props => [question, options, anonymous];
+}

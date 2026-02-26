@@ -1,19 +1,26 @@
 import 'package:voosu/domain/entities/chat_attachment.dart';
 import 'package:voosu/domain/entities/message.dart';
+import 'package:voosu/domain/entities/poll.dart';
 import 'package:voosu/generated/grpc_pb/chat.pb.dart' as chatpb;
+import 'package:voosu/generated/grpc_pb/common.pb.dart' as commonpb;
 
 class MessageMapper {
   static Message fromProto(chatpb.Message msg) {
     final peer = msg.peer;
+    final isGroup = peer.whichPeer() == commonpb.Peer_Peer.groupId;
     final peerUserId = peer.hasUserId() ? peer.userId.toInt() : 0;
+    final peerGroupId = peer.hasGroupId() ? peer.groupId.toInt() : 0;
     final fromUserId = msg.fromPeer.hasUserId() ? msg.fromPeer.userId.toInt() : 0;
     final attachments = msg.attachments
       .map((a) => _attachmentFromProto(a))
       .toList();
+    final poll = msg.hasPoll() ? _pollFromProto(msg.poll) : null;
 
     return Message(
       id: msg.id.toInt(),
+      isGroupChat: isGroup,
       peerUserId: peerUserId,
+      peerGroupId: peerGroupId,
       fromPeerUserId: fromUserId,
       content: msg.content,
       createdAt: DateTime.fromMillisecondsSinceEpoch(
@@ -26,6 +33,24 @@ class MessageMapper {
       replyToMessageDeleted: msg.replyToMessageDeleted,
       forwardedFromMessageDeleted: msg.forwardedFromMessageDeleted,
       attachments: attachments,
+      poll: poll,
+    );
+  }
+
+  static Poll _pollFromProto(chatpb.Poll p) {
+    final options = p.options.map((o) => PollOptionResult(
+      optionId: o.optionId.toInt(),
+      text: o.text,
+      position: o.position.toInt(),
+      voteCount: o.voteCount.toInt(),
+      voterUserIds: o.voterUserIds.map((id) => id.toInt()).toList(),
+    )).toList();
+
+    return Poll(
+      id: p.id.toInt(),
+      question: p.question,
+      anonymous: p.anonymous,
+      options: options,
     );
   }
 

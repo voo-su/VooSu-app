@@ -1,5 +1,21 @@
 import 'package:flutter/material.dart';
 
+String participantsSubtitle(int count, {String? emptyLabel}) {
+  if (count <= 0) {
+    return emptyLabel ?? 'групповой чат';
+  }
+
+  if (count == 1) {
+    return '1 участник';
+  }
+
+  if (count >= 2 && count <= 4) {
+    return '$count участника';
+  }
+
+  return '$count участников';
+}
+
 bool isBlank(String? value) => value == null || value.isEmpty;
 
 bool isBlankTrimmed(String? value) => value == null || value.trim().isEmpty;

@@ -8,12 +8,14 @@ class SavePendingMessageUseCase {
   Future<void> call({
     required String localId,
     required int peerUserId,
+    required int peerGroupId,
     required String content,
     String? attachmentsJson,
     int replyToId = 0,
   }) => repo.savePendingMessage(
     localId: localId,
     peerUserId: peerUserId,
+    peerGroupId: peerGroupId,
     content: content,
     attachmentsJson: attachmentsJson,
     replyToId: replyToId,

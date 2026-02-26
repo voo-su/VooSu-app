@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:voosu/core/util.dart';
 import 'package:voosu/domain/entities/chat.dart';
+import 'package:voosu/presentation/screens/auth/bloc/auth_bloc.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_bloc.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_event.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_state.dart';
+import 'package:voosu/presentation/screens/chat/group_info_screen.dart';
 import 'package:voosu/presentation/screens/chat/widgets/chat_delete_scope_dialog.dart';
 import 'package:voosu/presentation/screens/chat/widgets/chat_list_avatar.dart';
 import 'package:voosu/presentation/screens/chat/widgets/chat_list_item.dart';
@@ -119,6 +122,12 @@ class ChatContentHeader extends StatelessWidget {
     final chat = selectedChat!;
     final title = ChatListItem.title(chat);
 
+    final groupSubtitle = chat.isGroup
+        ? participantsSubtitle(chat.memberCount)
+        : null;
+    final subtitleColor =
+        theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8);
+
     return Row(
       children: [
         if (showBackButton)
@@ -154,6 +163,14 @@ class ChatContentHeader extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
+                        if (groupSubtitle != null)
+                          Text(
+                            groupSubtitle,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: subtitleColor,
+                              fontSize: 13,
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -265,7 +282,36 @@ class ChatContentHeader extends StatelessWidget {
 
   static void _onHeaderTap(BuildContext context, Chat chat) {
     final isMobile = Breakpoints.isMobile(context);
-    _showUserCard(context, chat, isMobile);
+    if (chat.isGroup) {
+      final chatBloc = context.read<ChatBloc>();
+      final authBloc = context.read<AuthBloc>();
+      final screen = BlocProvider.value(
+        value: chatBloc,
+        child: GroupInfoScreen(
+          groupId: chat.peerGroupId,
+          groupTitle: chat.title,
+          currentUserId: authBloc.state.user?.id,
+          isModal: !isMobile,
+        ),
+      );
+      if (isMobile) {
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute<void>(builder: (_) => screen));
+      } else {
+        showDialog<void>(
+          context: context,
+          builder: (context) => Dialog(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 440, maxHeight: 560),
+              child: screen,
+            ),
+          ),
+        );
+      }
+    } else {
+      _showUserCard(context, chat, isMobile);
+    }
   }
 
   static void _showUserCard(BuildContext context, Chat chat, bool isMobile) {

@@ -91,10 +91,14 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<List<PendingOutgoingMessage>> getPendingForChat(int chatId) async {
+    final isGroup = chatId < 0;
+    final peerUserId = isGroup ? 0 : chatId;
+    final peerGroupId = isGroup ? -chatId : 0;
     final rows = await (customSelect(
-      'SELECT * FROM pending_outgoing_messages WHERE peer_user_id = ? AND peer_group_id = 0 ORDER BY created_at ASC',
+      'SELECT * FROM pending_outgoing_messages WHERE peer_user_id = ? AND peer_group_id = ? ORDER BY created_at ASC',
       variables: [
-        Variable.withInt(chatId),
+        Variable.withInt(peerUserId),
+        Variable.withInt(peerGroupId),
       ],
       readsFrom: {pendingOutgoingMessages},
     ).map((row) => PendingOutgoingMessage(

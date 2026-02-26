@@ -51,6 +51,7 @@ class ChatInputBar extends StatefulWidget {
   final OnUploadLargeFile? uploadLargeFile;
   final OnSendWithLargeFiles? onSendWithLargeFiles;
   final String? hintText;
+  final VoidCallback? onCreatePoll;
 
   const ChatInputBar({
     super.key,
@@ -64,6 +65,7 @@ class ChatInputBar extends StatefulWidget {
     this.uploadLargeFile,
     this.onSendWithLargeFiles,
     this.hintText,
+    this.onCreatePoll,
   });
 
   @override
@@ -718,6 +720,22 @@ class _ChatInputBarState extends State<ChatInputBar> {
                                 height: 44,
                                 child: Icon(
                                   Icons.emoji_emotions_outlined,
+                                  size: 22,
+                                ),
+                              ),
+                            ),
+                          ),
+                        if (widget.isEnabled && widget.onCreatePoll != null)
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: widget.onCreatePoll,
+                              borderRadius: BorderRadius.circular(20),
+                              child: const SizedBox(
+                                width: 44,
+                                height: 44,
+                                child: Icon(
+                                  Icons.poll_outlined,
                                   size: 22,
                                 ),
                               ),

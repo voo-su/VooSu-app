@@ -8,7 +8,8 @@ class SendChatMessageUseCase {
   SendChatMessageUseCase(this.repo);
 
   Future<Message> call({
-    required int peerUserId,
+    int? peerUserId,
+    int? peerGroupId,
     required String content,
     int replyToMessageId = 0,
     bool forwarded = false,
@@ -16,6 +17,7 @@ class SendChatMessageUseCase {
     List<AttachmentUpload>? attachments,
   }) => repo.sendMessage(
     peerUserId: peerUserId,
+    peerGroupId: peerGroupId,
     content: content,
     replyToMessageId: replyToMessageId,
     forwarded: forwarded,

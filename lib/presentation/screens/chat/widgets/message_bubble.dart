@@ -4,6 +4,7 @@ import 'package:voosu/core/attachment_type_helper.dart';
 import 'package:voosu/core/date_formatter.dart';
 import 'package:voosu/domain/entities/chat_attachment.dart';
 import 'package:voosu/domain/entities/message.dart';
+import 'package:voosu/domain/entities/poll.dart';
 import 'package:voosu/presentation/screens/chat/widgets/chat_attachment_view.dart';
 
 String _attachmentTypeLabel(ChatAttachment att) {
@@ -51,6 +52,7 @@ class MessageBubble extends StatelessWidget {
   final bool isSelectionMode;
   final bool isSelected;
   final VoidCallback? onToggleSelection;
+  final void Function(int messageId, int optionId)? onVotePoll;
 
   const MessageBubble({
     super.key,
@@ -66,6 +68,7 @@ class MessageBubble extends StatelessWidget {
     this.isSelectionMode = false,
     this.isSelected = false,
     this.onToggleSelection,
+    this.onVotePoll,
   });
 
   static const double _bubbleRadius = 18;
@@ -481,6 +484,15 @@ class MessageBubble extends StatelessWidget {
                           ),
                         ],
                       ),
+                      if (message.poll != null) ...[
+                        const SizedBox(height: 8),
+                        _PollWidget(
+                          poll: message.poll!,
+                          messageId: message.id,
+                          textColor: textColor,
+                          onVote: onVotePoll,
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -564,6 +576,103 @@ class _AttachmentPreviewTile extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
         ),
       ],
+    );
+  }
+}
+
+class _PollWidget extends StatelessWidget {
+  final Poll poll;
+  final int messageId;
+  final Color textColor;
+  final void Function(int messageId, int optionId)? onVote;
+
+  const _PollWidget({
+    required this.poll,
+    required this.messageId,
+    required this.textColor,
+    this.onVote,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final totalVotes = poll.options.fold<int>(0, (s, o) => s + o.voteCount);
+    final isDark = theme.brightness == Brightness.dark;
+    final optionBg = isDark
+      ? textColor.withValues(alpha: 0.08)
+      : textColor.withValues(alpha: 0.06);
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 260),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ...poll.options.map((opt) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Material(
+                color: optionBg,
+                borderRadius: BorderRadius.circular(10),
+                child: InkWell(
+                  onTap: onVote != null
+                    ? () => onVote!(messageId, opt.optionId)
+                    : null,
+                  borderRadius: BorderRadius.circular(10),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            opt.text,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: textColor,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 2,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          opt.voteCount > 0 ? '${opt.voteCount}' : '',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: textColor.withValues(alpha: 0.75),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
+          if (poll.anonymous && totalVotes > 0)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                'Анонимный опрос',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: textColor.withValues(alpha: 0.6),
+                  fontSize: 11,
+                ),
+              ),
+            )
+          else if (!poll.anonymous && totalVotes > 0)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                'Всего голосов: $totalVotes',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: textColor.withValues(alpha: 0.6),
+                  fontSize: 11,
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

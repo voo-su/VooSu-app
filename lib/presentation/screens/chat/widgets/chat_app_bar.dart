@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:voosu/core/util.dart';
 import 'package:voosu/domain/entities/chat.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_bloc.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_event.dart';
@@ -58,6 +59,16 @@ class ChatAppBar extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
+                if (chat.isGroup)
+                  Text(
+                    participantsSubtitle(chat.memberCount),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.8,
+                      ),
+                      fontSize: 13,
+                    ),
+                  ),
               ],
             ),
           ),

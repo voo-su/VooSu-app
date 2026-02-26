@@ -4,6 +4,7 @@ import 'package:voosu/data/data_sources/remote/chat_remote_datasource.dart';
 import 'package:voosu/data/db/app_database.dart';
 import 'package:voosu/domain/entities/attachment_upload.dart';
 import 'package:voosu/domain/entities/chat.dart';
+import 'package:voosu/domain/entities/group_info.dart';
 import 'package:voosu/domain/entities/message.dart';
 import 'package:voosu/domain/repositories/chat_repository.dart';
 
@@ -25,9 +26,25 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   @override
+  Future<Chat> createGroupChat({
+    required String title,
+    required List<int> userIds,
+  }) async {
+    try {
+      return await _remote.createGroupChat(title: title, userIds: userIds);
+    } catch (e) {
+      if (e is Failure) rethrow;
+      Logs().e('ChatRepository: неожиданная ошибка в createGroupChat', e);
+      throw ApiFailure('Ошибка создания группового чата');
+    }
+  }
+
+  @override
   Future<List<Chat>> getChats() async {
     try {
-      return await _remote.getChats();
+      final chats = await _remote.getChats();
+
+      return chats;
     } catch (e) {
       if (e is Failure) rethrow;
       Logs().e('ChatRepository: неожиданная ошибка в getChats', e);
@@ -36,8 +53,53 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   @override
+  Future<GroupInfo> getGroupInfo(int groupId) async {
+    try {
+      return await _remote.getGroupInfo(groupId);
+    } catch (e) {
+      if (e is Failure) rethrow;
+      Logs().e('ChatRepository: неожиданная ошибка в getGroupInfo', e);
+      throw ApiFailure('Ошибка загрузки информации о группе');
+    }
+  }
+
+  @override
+  Future<void> addGroupMembers(int groupId, List<int> userIds) async {
+    try {
+      await _remote.addGroupMembers(groupId, userIds);
+    } catch (e) {
+      if (e is Failure) rethrow;
+      Logs().e('ChatRepository: неожиданная ошибка в addGroupMembers', e);
+      throw ApiFailure('Ошибка добавления участников');
+    }
+  }
+
+  @override
+  Future<void> removeGroupMembers(int groupId, List<int> userIds) async {
+    try {
+      await _remote.removeGroupMembers(groupId, userIds);
+    } catch (e) {
+      if (e is Failure) rethrow;
+      Logs().e('ChatRepository: неожиданная ошибка в removeGroupMembers', e);
+      throw ApiFailure('Ошибка удаления участников');
+    }
+  }
+
+  @override
+  Future<void> setGroupMemberRole(int groupId, int userId, int role) async {
+    try {
+      await _remote.setGroupMemberRole(groupId, userId, role);
+    } catch (e) {
+      if (e is Failure) rethrow;
+      Logs().e('ChatRepository: неожиданная ошибка в setGroupMemberRole', e);
+      throw ApiFailure('Ошибка изменения роли');
+    }
+  }
+
+  @override
   Future<Message> sendMessage({
-    required int peerUserId,
+    int? peerUserId,
+    int? peerGroupId,
     required String content,
     int replyToMessageId = 0,
     bool forwarded = false,
@@ -47,6 +109,7 @@ class ChatRepositoryImpl implements ChatRepository {
     try {
       return await _remote.sendMessage(
         peerUserId: peerUserId,
+        peerGroupId: peerGroupId,
         content: content,
         replyToMessageId: replyToMessageId,
         forwarded: forwarded,
@@ -87,16 +150,20 @@ class ChatRepositoryImpl implements ChatRepository {
 
   @override
   Future<List<Message>> getHistory({
-    required int peerUserId,
+    int? peerUserId,
+    int? peerGroupId,
     required int messageId,
     required int limit,
   }) async {
     try {
-      return await _remote.getHistory(
+      final messages = await _remote.getHistory(
         peerUserId: peerUserId,
+        peerGroupId: peerGroupId,
         messageId: messageId,
         limit: limit,
       );
+
+      return messages;
     } catch (e) {
       if (e is Failure) rethrow;
       Logs().e('ChatRepository: неожиданная ошибка в getHistory', e);
@@ -120,9 +187,12 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   @override
-  Future<void> clearHistory({required int peerUserId}) async {
+  Future<void> clearHistory({int? peerUserId, int? peerGroupId}) async {
     try {
-      await _remote.clearHistory(peerUserId: peerUserId);
+      await _remote.clearHistory(
+        peerUserId: peerUserId,
+        peerGroupId: peerGroupId,
+      );
     } catch (e) {
       if (e is Failure) rethrow;
       Logs().e('ChatRepository: неожиданная ошибка в clearHistory', e);
@@ -131,9 +201,12 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   @override
-  Future<void> deleteChat({required int peerUserId}) async {
+  Future<void> deleteChat({int? peerUserId, int? peerGroupId}) async {
     try {
-      await _remote.deleteChat(peerUserId: peerUserId);
+      await _remote.deleteChat(
+        peerUserId: peerUserId,
+        peerGroupId: peerGroupId,
+      );
     } catch (e) {
       if (e is Failure) rethrow;
       Logs().e('ChatRepository: неожиданная ошибка в deleteChat', e);
@@ -142,9 +215,61 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   @override
+  Future<int> uploadGroupPhoto(int groupId, int fileId) async {
+    try {
+      return await _remote.uploadGroupPhoto(groupId, fileId);
+    } catch (e) {
+      if (e is Failure) rethrow;
+      Logs().e('ChatRepository: ошибка uploadGroupPhoto', e);
+      throw ApiFailure('Ошибка загрузки фото группы');
+    }
+  }
+
+  @override
+  Future<Message> createPoll({
+    required int groupId,
+    required String question,
+    required List<String> options,
+    required bool anonymous,
+  }) async {
+    try {
+      return await _remote.createPoll(
+        peerGroupId: groupId,
+        question: question,
+        options: options,
+        anonymous: anonymous,
+      );
+    } catch (e) {
+      if (e is Failure) rethrow;
+      Logs().e('ChatRepository: ошибка в createPoll', e);
+      throw ApiFailure('Ошибка создания опроса');
+    }
+  }
+
+  @override
+  Future<void> votePoll({
+    required int groupId,
+    required int messageId,
+    required int optionId,
+  }) async {
+    try {
+      await _remote.votePoll(
+        peerGroupId: groupId,
+        messageId: messageId,
+        optionId: optionId,
+      );
+    } catch (e) {
+      if (e is Failure) rethrow;
+      Logs().e('ChatRepository: ошибка в votePoll', e);
+      throw ApiFailure('Ошибка голосования');
+    }
+  }
+
+  @override
   Future<void> savePendingMessage({
     required String localId,
     required int peerUserId,
+    required int peerGroupId,
     required String content,
     String? attachmentsJson,
     int replyToId = 0,
@@ -152,7 +277,7 @@ class ChatRepositoryImpl implements ChatRepository {
     await _db?.insertPendingMessage(
       localId: localId,
       peerUserId: peerUserId,
-      peerGroupId: 0,
+      peerGroupId: peerGroupId,
       content: content,
       attachmentsJson: attachmentsJson,
       replyToId: replyToId,

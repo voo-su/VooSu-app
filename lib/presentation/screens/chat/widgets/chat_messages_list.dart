@@ -26,6 +26,7 @@ class ChatMessagesList extends StatelessWidget {
   final ScrollController scrollController;
   final void Function(Message)? onReply;
   final void Function(Message)? onForward;
+  final void Function(int messageId, int optionId)? onVotePoll;
   final Future<void> Function(int fileId, String filename)?
   onDownloadAttachment;
 
@@ -35,6 +36,7 @@ class ChatMessagesList extends StatelessWidget {
     required this.scrollController,
     this.onReply,
     this.onForward,
+    this.onVotePoll,
     this.onDownloadAttachment,
   });
 
@@ -91,9 +93,14 @@ class ChatMessagesList extends StatelessWidget {
             final replyToMessage = message.replyToMessageId > 0
               ? _findMessage(state.messages, message.replyToMessageId)
               : null;
+            final isGroup = state.selectedChat?.isGroup ?? false;
             final chatTitle = state.selectedChat?.title ?? 'Пользователь';
             String? senderNameFor(int userId) {
               if (currentUserInt == 0) {
+                return null;
+              }
+
+              if (isGroup) {
                 return null;
               }
 
@@ -114,6 +121,7 @@ class ChatMessagesList extends StatelessWidget {
               onForward: onForward != null
                 ? () => onForward?.call(message)
                 : null,
+              onVotePoll: onVotePoll,
               onDownloadAttachment: onDownloadAttachment,
               onDelete: () async {
                 final forEveryone = await showDeleteScopeDialog(

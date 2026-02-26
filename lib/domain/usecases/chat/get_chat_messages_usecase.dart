@@ -7,11 +7,13 @@ class GetChatMessagesUseCase {
   GetChatMessagesUseCase(this.repo);
 
   Future<List<Message>> call({
-    required int peerUserId,
+    int? peerUserId,
+    int? peerGroupId,
     required int messageId,
     required int limit,
   }) => repo.getHistory(
     peerUserId: peerUserId,
+    peerGroupId: peerGroupId,
     messageId: messageId,
     limit: limit,
   );

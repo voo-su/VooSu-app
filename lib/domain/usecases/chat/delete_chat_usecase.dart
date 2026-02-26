@@ -5,5 +5,8 @@ class DeleteChatUseCase {
 
   DeleteChatUseCase(this.repo);
 
-  Future<void> call({required int peerUserId}) => repo.deleteChat(peerUserId: peerUserId);
+  Future<void> call({int? peerUserId, int? peerGroupId}) => repo.deleteChat(
+    peerUserId: peerUserId,
+    peerGroupId: peerGroupId,
+  );
 }

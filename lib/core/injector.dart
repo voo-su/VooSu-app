@@ -20,6 +20,7 @@ import 'package:voosu/domain/usecases/auth/logout_usecase.dart';
 import 'package:voosu/domain/usecases/auth/refresh_token_usecase.dart';
 import 'package:voosu/domain/usecases/chat/get_chats_usecase.dart';
 import 'package:voosu/domain/usecases/chat/create_chat_usecase.dart';
+import 'package:voosu/domain/usecases/chat/create_group_chat_usecase.dart';
 import 'package:voosu/domain/usecases/chat/clear_chat_history_usecase.dart';
 import 'package:voosu/domain/usecases/chat/delete_chat_usecase.dart';
 import 'package:voosu/domain/usecases/chat/delete_chat_messages_usecase.dart';
@@ -29,6 +30,7 @@ import 'package:voosu/domain/usecases/chat/remove_pending_message_usecase.dart';
 import 'package:voosu/domain/usecases/chat/save_pending_message_usecase.dart';
 import 'package:voosu/domain/usecases/chat/send_chat_message_usecase.dart';
 import 'package:voosu/domain/usecases/chat/upload_chat_file_usecase.dart';
+import 'package:voosu/domain/usecases/chat/chat_poll_usecase.dart';
 import 'package:voosu/domain/usecases/search/search_users_usecase.dart';
 import 'package:voosu/presentation/screens/auth/bloc/auth_bloc.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_bloc.dart';
@@ -103,6 +105,7 @@ Future<void> init() async {
 
   sl.registerFactory(() => GetChatsUseCase(sl()));
   sl.registerFactory(() => CreateChatUseCase(sl()));
+  sl.registerFactory(() => CreateGroupChatUseCase(sl()));
   sl.registerFactory(() => GetChatMessagesUseCase(sl()));
   sl.registerFactory(() => SendChatMessageUseCase(sl()));
   sl.registerFactory(() => SavePendingMessageUseCase(sl()));
@@ -112,11 +115,13 @@ Future<void> init() async {
   sl.registerFactory(() => DeleteChatMessagesUseCase(sl()));
   sl.registerFactory(() => ClearChatHistoryUseCase(sl()));
   sl.registerFactory(() => DeleteChatUseCase(sl()));
+  sl.registerFactory(() => ChatPollUseCase(sl()));
 
   sl.registerFactory(
     () => ChatBloc(
       getChatsUseCase: sl(),
       createChatUseCase: sl(),
+      createGroupChatUseCase: sl(),
       getChatMessagesUseCase: sl(),
       sendChatMessageUseCase: sl(),
       savePendingMessageUseCase: sl(),
@@ -126,6 +131,7 @@ Future<void> init() async {
       clearChatHistoryUseCase: sl(),
       deleteChatUseCase: sl(),
       authBloc: sl<AuthBloc>(),
+      chatPollUseCase: sl<ChatPollUseCase>(),
     ),
   );
 
