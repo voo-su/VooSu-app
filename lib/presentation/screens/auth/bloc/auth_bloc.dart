@@ -5,6 +5,7 @@ import 'package:voosu/core/auth_guard.dart';
 import 'package:voosu/core/failures.dart';
 import 'package:voosu/core/jwt_util.dart';
 import 'package:voosu/core/log/logs.dart';
+import 'package:voosu/data/data_sources/local/chat_notification_settings_local_data_source.dart';
 import 'package:voosu/data/data_sources/local/user_local_data_source.dart';
 import 'package:voosu/domain/usecases/auth/email_auth_usecases.dart';
 import 'package:voosu/domain/usecases/auth/logout_usecase.dart';
@@ -19,6 +20,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final LogoutUseCase logoutUseCase;
   final UserLocalDataSourceImpl tokenStorage;
   final AuthGuard authGuard;
+  final ChatNotificationSettingsLocalDataSource? chatNotificationSettings;
 
   Timer? _backgroundRefreshTimer;
 
@@ -29,6 +31,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     required this.logoutUseCase,
     required this.tokenStorage,
     required this.authGuard,
+    this.chatNotificationSettings,
   }) : super(const AuthState()) {
     authGuard.setOnSessionExpired(() => add(const AuthLogoutRequested()));
     on<AuthLoginCodeRequested>(_onLoginCodeRequested);
@@ -47,6 +50,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     super.onTransition(transition);
     if (transition.nextState.isAuthenticated) {
       _startBackgroundRefreshTimer();
+      chatNotificationSettings?.ensureLoaded();
     } else {
       _cancelBackgroundRefreshTimer();
     }

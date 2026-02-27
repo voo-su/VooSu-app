@@ -68,7 +68,18 @@ abstract class IChatRemoteDataSource {
 
   Future<void> deleteChat({int? peerUserId, int? peerGroupId});
 
+  Future<void> sendTyping(int peerUserId);
+
   Future<int> uploadGroupPhoto(int groupId, int fileId);
+
+  Future<void> setChatNotifications(Chat chat, bool notificationsMuted);
+
+  Future<void> reportInlineCallback({
+    int? peerUserId,
+    int? peerGroupId,
+    required int messageId,
+    required String callbackData,
+  });
 
   Future<Message> createPoll({
     required int peerGroupId,
@@ -420,6 +431,20 @@ class ChatRemoteDataSource implements IChatRemoteDataSource {
   }
 
   @override
+  Future<void> sendTyping(int peerUserId) async {
+    try {
+      final req = chatpb.SendTypingRequest(
+        peer: commonpb.Peer(userId: Int64(peerUserId)),
+      );
+      await _authGuard.execute(() => _client.sendTyping(req));
+    } on GrpcError catch (e) {
+      Logs().e('ChatRemoteDataSource: ошибка sendTyping', e);
+    } catch (e) {
+      Logs().e('ChatRemoteDataSource: ошибка sendTyping', e);
+    }
+  }
+
+  @override
   Future<int> uploadGroupPhoto(int groupId, int fileId) async {
     try {
       final req = chatpb.UploadGroupPhotoRequest(
@@ -434,6 +459,52 @@ class ChatRemoteDataSource implements IChatRemoteDataSource {
     } catch (e) {
       Logs().e('ChatRemoteDataSource: ошибка uploadGroupPhoto', e);
       throw ApiFailure('Ошибка загрузки фото группы');
+    }
+  }
+
+  @override
+  Future<void> setChatNotifications(Chat chat, bool notificationsMuted) async {
+    try {
+      final peer = chat.isGroup
+          ? commonpb.Peer(groupId: Int64(chat.peerGroupId))
+          : commonpb.Peer(userId: Int64(chat.peerUserId));
+      final req = chatpb.SetChatNotificationsRequest(
+        peer: peer,
+        notificationsMuted: notificationsMuted,
+      );
+      await _authGuard.execute(() => _client.setChatNotifications(req));
+    } on GrpcError catch (e) {
+      Logs().e('ChatRemoteDataSource: ошибка gRPC в setChatNotifications', e);
+      throwGrpcError(e, 'Ошибка настройки уведомлений');
+    } catch (e) {
+      Logs().e('ChatRemoteDataSource: ошибка в setChatNotifications', e);
+      throw ApiFailure('Ошибка настройки уведомлений');
+    }
+  }
+
+  @override
+  Future<void> reportInlineCallback({
+    int? peerUserId,
+    int? peerGroupId,
+    required int messageId,
+    required String callbackData,
+  }) async {
+    try {
+      final peer = peerGroupId != null && peerGroupId > 0
+        ? commonpb.Peer(groupId: Int64(peerGroupId))
+        : commonpb.Peer(userId: Int64(peerUserId ?? 0));
+      final req = chatpb.ReportInlineCallbackRequest(
+        peer: peer,
+        messageId: Int64(messageId),
+        callbackData: callbackData,
+      );
+      await _authGuard.execute(() => _client.reportInlineCallback(req));
+    } on GrpcError catch (e) {
+      Logs().e('ChatRemoteDataSource: ошибка gRPC в reportInlineCallback', e);
+      throwGrpcError(e, 'Ошибка отправки callback');
+    } catch (e) {
+      Logs().e('ChatRemoteDataSource: ошибка в reportInlineCallback', e);
+      throw ApiFailure('Ошибка отправки callback');
     }
   }
 

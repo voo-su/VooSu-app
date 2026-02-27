@@ -5,14 +5,18 @@ import 'package:voosu/presentation/screens/chat/widgets/chat_list_avatar.dart';
 class ChatListItem extends StatelessWidget {
   final Chat chat;
   final bool isSelected;
+  final bool notificationsMuted;
   final VoidCallback onTap;
+  final VoidCallback? onToggleNotifications;
   final VoidCallback? onDeleteChat;
 
   const ChatListItem({
     super.key,
     required this.chat,
     required this.isSelected,
+    this.notificationsMuted = false,
     required this.onTap,
+    this.onToggleNotifications,
     this.onDeleteChat,
   });
 
@@ -45,7 +49,7 @@ class ChatListItem extends StatelessWidget {
           : Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        onLongPress: onDeleteChat != null
+        onLongPress: (onToggleNotifications != null || onDeleteChat != null)
             ? () => _showContextMenu(context, theme)
             : null,
         child: Container(
@@ -88,7 +92,16 @@ class ChatListItem extends StatelessWidget {
                   ],
                 ),
               ),
-              if (chat.unreadCount > 0)
+              if (notificationsMuted)
+                Icon(
+                  Icons.notifications_off_outlined,
+                  size: 20,
+                  color: theme.colorScheme.onSurfaceVariant.withValues(
+                    alpha: 0.7,
+                  ),
+                ),
+              if (chat.unreadCount > 0) ...[
+                if (notificationsMuted) const SizedBox(width: 6),
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
@@ -107,6 +120,7 @@ class ChatListItem extends StatelessWidget {
                     ),
                   ),
                 ),
+              ],
             ],
           ),
         ),
@@ -121,6 +135,23 @@ class ChatListItem extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (onToggleNotifications != null)
+              ListTile(
+                leading: Icon(
+                  notificationsMuted
+                      ? Icons.notifications_outlined
+                      : Icons.notifications_off_outlined,
+                ),
+                title: Text(
+                  notificationsMuted
+                      ? 'Включить уведомления'
+                      : 'Отключить уведомления',
+                ),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  onToggleNotifications?.call();
+                },
+              ),
             if (onDeleteChat != null)
               ListTile(
                 leading: const Icon(Icons.delete_outline),

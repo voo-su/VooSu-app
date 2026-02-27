@@ -26,6 +26,7 @@ class ChatMessagesList extends StatelessWidget {
   final ScrollController scrollController;
   final void Function(Message)? onReply;
   final void Function(Message)? onForward;
+  final void Function(int messageId, String callbackData)? onInlineButtonPressed;
   final void Function(int messageId, int optionId)? onVotePoll;
   final Future<void> Function(int fileId, String filename)?
   onDownloadAttachment;
@@ -36,6 +37,7 @@ class ChatMessagesList extends StatelessWidget {
     required this.scrollController,
     this.onReply,
     this.onForward,
+    this.onInlineButtonPressed,
     this.onVotePoll,
     this.onDownloadAttachment,
   });
@@ -121,6 +123,7 @@ class ChatMessagesList extends StatelessWidget {
               onForward: onForward != null
                 ? () => onForward?.call(message)
                 : null,
+              onInlineButtonPressed: onInlineButtonPressed,
               onVotePoll: onVotePoll,
               onDownloadAttachment: onDownloadAttachment,
               onDelete: () async {

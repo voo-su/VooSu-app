@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:voosu/core/util.dart';
+import 'package:voosu/data/data_sources/local/chat_notification_settings_local_data_source.dart';
 import 'package:voosu/domain/entities/chat.dart';
 import 'package:voosu/presentation/screens/auth/bloc/auth_bloc.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_bloc.dart';
@@ -120,6 +121,8 @@ class ChatContentHeader extends StatelessWidget {
 
   Widget _buildChatHeader(BuildContext context, ThemeData theme) {
     final chat = selectedChat!;
+    final notificationSettings = context
+        .read<ChatNotificationSettingsLocalDataSource>();
     final title = ChatListItem.title(chat);
 
     final groupSubtitle = chat.isGroup
@@ -128,98 +131,128 @@ class ChatContentHeader extends StatelessWidget {
     final subtitleColor =
         theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8);
 
-    return Row(
-      children: [
-        if (showBackButton)
-          IconButton(
-            icon: const Icon(Icons.arrow_back_rounded),
-            onPressed: () => context.read<ChatBloc>().add(const ChatBackToList()),
-          ),
-        Expanded(
-          child: InkWell(
-            onTap: () => _onHeaderTap(context, chat),
-            borderRadius: BorderRadius.circular(8),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Row(
-                children: [
-                  ChatListAvatar(
-                    title: title,
-                    size: 40,
-                    avatarFileId: chat.avatarFileId,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          title,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w500,
-                            fontSize: 16,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        if (groupSubtitle != null)
-                          Text(
-                            groupSubtitle,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: subtitleColor,
-                              fontSize: 13,
+    return StreamBuilder<Set<int>>(
+      stream: notificationSettings.mutedStream,
+      initialData: notificationSettings.mutedChatIds,
+      builder: (context, snapshot) {
+        final mutedIds = snapshot.data ?? {};
+        final notificationsMuted = mutedIds.contains(chat.id);
+
+        return Row(
+          children: [
+            if (showBackButton)
+              IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                onPressed: () => context.read<ChatBloc>().add(const ChatBackToList()),
+              ),
+            Expanded(
+              child: InkWell(
+                onTap: () => _onHeaderTap(context, chat),
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    children: [
+                      ChatListAvatar(
+                        title: title,
+                        size: 40,
+                        avatarFileId: chat.avatarFileId,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              title,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w500,
+                                fontSize: 16,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                          ),
-                      ],
-                    ),
+                            if (groupSubtitle != null)
+                              Text(
+                                groupSubtitle,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: subtitleColor,
+                                  fontSize: 13,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
-          ),
-        ),
-        PopupMenuButton<String>(
-          icon: const Icon(Icons.more_vert, size: 22),
-          tooltip: '',
-          onSelected: (value) {
-            if (value == 'clear_history') {
-              _showClearHistoryConfirm(context);
-            } else if (value == 'delete_chat') {
-              _showDeleteChatConfirm(context, chat);
-            }
-          },
-          itemBuilder: (context) => [
-            const PopupMenuItem<String>(
-              value: 'clear_history',
-              child: Row(
-                children: [
-                  Icon(Icons.delete_sweep_outlined, size: 20),
-                  SizedBox(width: 12),
-                  Text('Очистить историю'),
-                ],
-              ),
-            ),
-            PopupMenuItem<String>(
-              value: 'delete_chat',
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.delete_outline,
-                    size: 20,
-                    color: theme.colorScheme.error,
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, size: 22),
+              tooltip: '',
+              onSelected: (value) {
+                if (value == 'notifications') {
+                  context.read<ChatBloc>().add(ChatToggleChatNotifications(chat));
+                } else if (value == 'clear_history') {
+                  _showClearHistoryConfirm(context);
+                } else if (value == 'delete_chat') {
+                  _showDeleteChatConfirm(context, chat);
+                }
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem<String>(
+                  value: 'notifications',
+                  child: Row(
+                    children: [
+                      Icon(
+                        notificationsMuted
+                          ? Icons.notifications_outlined
+                          : Icons.notifications_off_outlined,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        notificationsMuted
+                          ? 'Включить уведомления'
+                          : 'Отключить уведомления',
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  Text(
-                    'Удалить чат',
-                    style: TextStyle(color: theme.colorScheme.error),
+                ),
+                const PopupMenuItem<String>(
+                  value: 'clear_history',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete_sweep_outlined, size: 20),
+                      SizedBox(width: 12),
+                      Text('Очистить историю'),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                PopupMenuItem<String>(
+                  value: 'delete_chat',
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.delete_outline,
+                        size: 20,
+                        color: theme.colorScheme.error,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Удалить чат',
+                        style: TextStyle(color: theme.colorScheme.error),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ],
-        ),
-      ],
+        );
+      },
     );
   }
 

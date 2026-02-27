@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:voosu/data/data_sources/local/chat_notification_settings_local_data_source.dart';
 import 'package:voosu/domain/entities/chat.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_bloc.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_event.dart';
@@ -7,13 +8,27 @@ import 'package:voosu/presentation/screens/chat/bloc/chat_state.dart';
 import 'package:voosu/presentation/screens/chat/widgets/chat_list_item.dart';
 import 'package:voosu/presentation/widgets/loading_placeholder.dart';
 
-class ChatListWidget extends StatelessWidget {
+class ChatListWidget extends StatefulWidget {
   final ChatState state;
 
   const ChatListWidget({super.key, required this.state});
 
   @override
+  State<ChatListWidget> createState() => _ChatListWidgetState();
+}
+
+class _ChatListWidgetState extends State<ChatListWidget> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<ChatNotificationSettingsLocalDataSource>().ensureLoaded();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final state = widget.state;
     if (state.isLoading && state.chats.isEmpty) {
       return const LoadingPlaceholder();
     }
@@ -32,20 +47,33 @@ class ChatListWidget extends StatelessWidget {
       );
     }
 
-    return ListView.separated(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      itemCount: state.chats.length,
-      separatorBuilder: (context, index) => const Divider(
-        height: 1,
-        indent: 60,
-      ),
-      itemBuilder: (context, index) {
-        final chat = state.chats[index];
-        return ChatListItem(
-          chat: chat,
-          isSelected: chat == state.selectedChat,
-          onTap: () => context.read<ChatBloc>().add(ChatSelectChat(chat)),
-          onDeleteChat: () => _showDeleteChatConfirm(context, chat),
+    final notificationSettings = context.read<ChatNotificationSettingsLocalDataSource>();
+
+    return StreamBuilder<Set<int>>(
+      stream: notificationSettings.mutedStream,
+      initialData: notificationSettings.mutedChatIds,
+      builder: (context, mutedSnapshot) {
+        final mutedIds = mutedSnapshot.data ?? {};
+        return ListView.separated(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          itemCount: state.chats.length,
+          separatorBuilder: (context, index) => const Divider(
+            height: 1,
+            indent: 60,
+          ),
+          itemBuilder: (context, index) {
+            final chat = state.chats[index];
+            return ChatListItem(
+              chat: chat,
+              isSelected: chat == state.selectedChat,
+              notificationsMuted: mutedIds.contains(chat.id),
+              onTap: () => context.read<ChatBloc>().add(ChatSelectChat(chat)),
+              onToggleNotifications: () => context.read<ChatBloc>().add(
+                ChatToggleChatNotifications(chat),
+              ),
+              onDeleteChat: () => _showDeleteChatConfirm(context, chat),
+            );
+          },
         );
       },
     );

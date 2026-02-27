@@ -65,6 +65,7 @@ class ChatMapper {
       memberCount: memberCount,
       avatarFileId: avatarFileId,
       lastMessagePreview: lastMessagePreview,
+      notificationsMuted: chat.notificationsMuted,
     );
   }
 

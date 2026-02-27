@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
@@ -34,6 +35,7 @@ class _UserChatScreenState extends State<UserChatScreen> {
   late final TextEditingController _messageController;
   final _scrollController = ScrollController();
   bool _showUserSearch = false;
+  Timer? _typingDebounce;
   bool _loadMoreTriggered = false;
 
   static const double _loadMoreScrollThreshold = 120;
@@ -44,6 +46,7 @@ class _UserChatScreenState extends State<UserChatScreen> {
     _messageController = EmojiTextEditingController(
       emojiTextStyle: const TextStyle(fontSize: 16),
     );
+    _messageController.addListener(_debouncedSendTyping);
     _scrollController.addListener(_onScrollForLoadMore);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ChatBloc>().add(const ChatStarted());
@@ -67,8 +70,23 @@ class _UserChatScreenState extends State<UserChatScreen> {
     }
   }
 
+  void _debouncedSendTyping() {
+    _typingDebounce?.cancel();
+    if (_messageController.text.trim().isEmpty) {
+      return;
+    }
+
+    _typingDebounce = Timer(const Duration(milliseconds: 800), () {
+      if (mounted) {
+        context.read<ChatBloc>().add(const ChatSendTyping());
+      }
+    });
+  }
+
   @override
   void dispose() {
+    _typingDebounce?.cancel();
+    _messageController.removeListener(_debouncedSendTyping);
     _scrollController.removeListener(_onScrollForLoadMore);
     _messageController.dispose();
     _scrollController.dispose();
@@ -234,6 +252,14 @@ class _UserChatScreenState extends State<UserChatScreen> {
     context.read<ChatBloc>().add(ChatForwardMessageToChat(message, targetChat));
   }
 
+  void _onInlineButtonPressed(int messageId, String callbackData) {
+    if (!mounted) {
+      return;
+    }
+
+    context.read<ChatBloc>().add(ChatInlineCallbackPressed(messageId, callbackData));
+  }
+
   void _onVotePoll(int messageId, int optionId) {
     if (!mounted) {
       return;
@@ -329,6 +355,7 @@ class _UserChatScreenState extends State<UserChatScreen> {
                       scrollController: _scrollController,
                       onReply: _onReplyToMessage,
                       onForward: _onForwardMessage,
+                      onInlineButtonPressed: _onInlineButtonPressed,
                       onVotePoll: _onVotePoll,
                       onDownloadAttachment: _onDownloadAttachment,
                     ),
@@ -410,6 +437,7 @@ class _UserChatScreenState extends State<UserChatScreen> {
                           scrollController: _scrollController,
                           onReply: _onReplyToMessage,
                           onForward: _onForwardMessage,
+                          onInlineButtonPressed: _onInlineButtonPressed,
                           onVotePoll: _onVotePoll,
                           onDownloadAttachment: _onDownloadAttachment,
                         ),

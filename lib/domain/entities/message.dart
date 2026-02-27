@@ -1,5 +1,6 @@
 import 'package:voosu/domain/entities/chat_attachment.dart';
 import 'package:voosu/domain/entities/poll.dart';
+import 'package:voosu/domain/entities/reply_markup.dart';
 
 class Message {
   final int id;
@@ -16,6 +17,7 @@ class Message {
   final bool replyToMessageDeleted;
   final bool forwardedFromMessageDeleted;
   final List<ChatAttachment> attachments;
+  final ReplyMarkup? replyMarkup;
   final Poll? poll;
 
   Message({
@@ -33,6 +35,7 @@ class Message {
     this.replyToMessageDeleted = false,
     this.forwardedFromMessageDeleted = false,
     this.attachments = const [],
+    this.replyMarkup,
     this.poll,
   });
 
@@ -71,6 +74,7 @@ class Message {
       replyToMessageDeleted: replyToMessageDeleted,
       forwardedFromMessageDeleted: forwardedFromMessageDeleted,
       attachments: attachments,
+      replyMarkup: replyMarkup,
       poll: poll ?? this.poll,
     );
   }

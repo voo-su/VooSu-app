@@ -215,6 +215,11 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   @override
+  Future<void> sendTyping(int peerUserId) async {
+    await _remote.sendTyping(peerUserId);
+  }
+
+  @override
   Future<int> uploadGroupPhoto(int groupId, int fileId) async {
     try {
       return await _remote.uploadGroupPhoto(groupId, fileId);
@@ -222,6 +227,37 @@ class ChatRepositoryImpl implements ChatRepository {
       if (e is Failure) rethrow;
       Logs().e('ChatRepository: ошибка uploadGroupPhoto', e);
       throw ApiFailure('Ошибка загрузки фото группы');
+    }
+  }
+
+  @override
+  Future<void> setChatNotifications(Chat chat, bool notificationsMuted) async {
+    try {
+      await _remote.setChatNotifications(chat, notificationsMuted);
+    } catch (e) {
+      if (e is Failure) rethrow;
+      Logs().e('ChatRepository: ошибка в setChatNotifications', e);
+      throw ApiFailure('Ошибка настройки уведомлений');
+    }
+  }
+
+  @override
+  Future<void> reportInlineCallback({
+    required Chat chat,
+    required int messageId,
+    required String callbackData,
+  }) async {
+    try {
+      await _remote.reportInlineCallback(
+        peerUserId: chat.isGroup ? null : chat.peerUserId,
+        peerGroupId: chat.isGroup ? chat.peerGroupId : null,
+        messageId: messageId,
+        callbackData: callbackData,
+      );
+    } catch (e) {
+      if (e is Failure) rethrow;
+      Logs().e('ChatRepository: ошибка в reportInlineCallback', e);
+      throw ApiFailure('Ошибка отправки callback');
     }
   }
 

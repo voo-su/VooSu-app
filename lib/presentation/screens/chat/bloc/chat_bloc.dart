@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:voosu/core/client_local_id.dart';
 import 'package:voosu/core/failures.dart';
 import 'package:voosu/core/log/logs.dart';
+import 'package:voosu/data/data_sources/local/chat_notification_settings_local_data_source.dart';
 import 'package:voosu/domain/entities/attachment_upload.dart';
 import 'package:voosu/domain/entities/chat.dart';
 import 'package:voosu/domain/entities/message.dart';
@@ -20,7 +21,10 @@ import 'package:voosu/domain/usecases/chat/get_pending_for_chat_usecase.dart';
 import 'package:voosu/domain/usecases/chat/remove_pending_message_usecase.dart';
 import 'package:voosu/domain/usecases/chat/save_pending_message_usecase.dart';
 import 'package:voosu/domain/usecases/chat/send_chat_message_usecase.dart';
+import 'package:voosu/domain/usecases/chat/send_chat_typing_usecase.dart';
+import 'package:voosu/domain/usecases/chat/report_inline_callback_usecase.dart';
 import 'package:voosu/domain/usecases/chat/chat_poll_usecase.dart';
+import 'package:voosu/domain/usecases/chat/set_chat_notifications_usecase.dart';
 import 'package:voosu/presentation/screens/auth/bloc/auth_bloc.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_event.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_state.dart';
@@ -38,8 +42,12 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   final DeleteChatMessagesUseCase deleteChatMessagesUseCase;
   final ClearChatHistoryUseCase clearChatHistoryUseCase;
   final DeleteChatUseCase deleteChatUseCase;
+  final SendChatTypingUseCase sendChatTypingUseCase;
+  final SetChatNotificationsUseCase setChatNotificationsUseCase;
+  final ReportInlineCallbackUseCase reportInlineCallbackUseCase;
   final ChatPollUseCase chatPollUseCase;
   final AuthBloc authBloc;
+  final ChatNotificationSettingsLocalDataSource? chatNotificationSettings;
 
   ChatBloc({
     required this.getChatsUseCase,
@@ -53,8 +61,12 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     required this.deleteChatMessagesUseCase,
     required this.clearChatHistoryUseCase,
     required this.deleteChatUseCase,
+    required this.sendChatTypingUseCase,
+    required this.setChatNotificationsUseCase,
+    required this.reportInlineCallbackUseCase,
     required this.chatPollUseCase,
     required this.authBloc,
+    this.chatNotificationSettings,
   }) : super(const ChatState()) {
     on<ChatStarted>(_onStarted);
     on<ChatLoadChats>(_onLoadChats);
@@ -73,15 +85,18 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<ChatForwardMessageToChat>(_onForwardMessageToChat);
     on<ChatClearError>(_onClearError);
     on<ChatBackToList>(_onBackToList);
+    on<ChatToggleChatNotifications>(_onToggleChatNotifications);
     on<ChatDeleteMessage>(_onDeleteMessage);
     on<ChatToggleMessageSelection>(_onToggleMessageSelection);
     on<ChatDeleteSelectedMessages>(_onDeleteSelectedMessages);
     on<ChatClearSelection>(_onClearSelection);
     on<ChatSelectAllMyMessages>(_onSelectAllMyMessages);
+    on<ChatSendTyping>(_onSendTyping);
     on<ChatClearHistory>(_onClearHistory);
     on<ChatDeleteChat>(_onDeleteChat);
     on<ChatLoadMoreMessages>(_onLoadMoreMessages);
     on<ChatCancelPendingFromQueue>(_onCancelPendingFromQueue);
+    on<ChatInlineCallbackPressed>(_onInlineCallbackPressed);
     on<ChatVotePoll>(_onVotePoll);
     on<ChatCreatePoll>(_onCreatePoll);
   }
@@ -124,6 +139,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           error: silent ? state.error : null,
         ),
       );
+      await _syncNotificationSettingsFromServer(chats);
     } catch (e) {
       Logs().e('ChatBloc: ошибка загрузки чатов', e);
       final fallbackChats = state.chats;
@@ -651,6 +667,40 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     }
   }
 
+  Future<void> _syncNotificationSettingsFromServer(List<Chat> chats) async {
+    final settings = chatNotificationSettings;
+    if (settings == null) return;
+    await settings.ensureLoaded();
+    for (final c in chats) {
+      await settings.setMuted(c.id, c.notificationsMuted);
+    }
+  }
+
+  Future<void> _onToggleChatNotifications(
+    ChatToggleChatNotifications event,
+    Emitter<ChatState> emit,
+  ) async {
+    final chat = event.chat;
+    final settings = chatNotificationSettings;
+    await settings?.ensureLoaded();
+
+    final nextMuted = settings == null
+        ? !chat.notificationsMuted
+        : !settings.isMuted(chat.id);
+    try {
+      await setChatNotificationsUseCase(chat, nextMuted);
+    } catch (_) {
+      return;
+    }
+
+    await settings?.setMuted(chat.id, nextMuted);
+    final updatedChat = chat.copyWith(notificationsMuted: nextMuted);
+    final updatedChats = state.chats
+        .map((c) => c.id == chat.id ? updatedChat : c)
+        .toList();
+    emit(state.copyWith(chats: updatedChats));
+  }
+
   Future<void> _onDeleteMessage(
     ChatDeleteMessage event,
     Emitter<ChatState> emit,
@@ -728,6 +778,46 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         .map((m) => m.id)
         .toSet();
     emit(state.copyWith(selectedMessageIds: myIds));
+  }
+
+  void _onSendTyping(ChatSendTyping event, Emitter<ChatState> emit) {
+    final chat = state.selectedChat;
+    if (chat == null) {
+      return;
+    }
+
+    if (chat.isGroup) {
+      return;
+    }
+
+    sendChatTypingUseCase(chat.peerUserId);
+  }
+
+  Future<void> _onInlineCallbackPressed(
+    ChatInlineCallbackPressed event,
+    Emitter<ChatState> emit,
+  ) async {
+    final chat = state.selectedChat;
+    if (chat == null) {
+      return;
+    }
+
+    if (chat.isGroup) {
+      emit(state.copyWith(error: 'Кнопки в групповых чатах пока не поддерживаются'));
+      return;
+    }
+
+    try {
+      await reportInlineCallbackUseCase(
+        chat: chat,
+        messageId: event.messageId,
+        callbackData: event.callbackData,
+      );
+    } on Failure catch (e) {
+      emit(state.copyWith(error: e.message));
+    } catch (_) {
+      emit(state.copyWith(error: 'Не удалось отправить нажатие кнопки'));
+    }
   }
 
   Future<void> _onVotePoll(

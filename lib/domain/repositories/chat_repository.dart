@@ -52,7 +52,17 @@ abstract class ChatRepository {
 
   Future<void> deleteChat({int? peerUserId, int? peerGroupId});
 
+  Future<void> sendTyping(int peerUserId);
+
   Future<int> uploadGroupPhoto(int groupId, int fileId);
+
+  Future<void> setChatNotifications(Chat chat, bool notificationsMuted);
+
+  Future<void> reportInlineCallback({
+    required Chat chat,
+    required int messageId,
+    required String callbackData,
+  });
 
   Future<Message> createPoll({
     required int groupId,

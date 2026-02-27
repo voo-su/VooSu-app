@@ -1,6 +1,7 @@
 import 'package:voosu/domain/entities/chat_attachment.dart';
 import 'package:voosu/domain/entities/message.dart';
 import 'package:voosu/domain/entities/poll.dart';
+import 'package:voosu/domain/entities/reply_markup.dart';
 import 'package:voosu/generated/grpc_pb/chat.pb.dart' as chatpb;
 import 'package:voosu/generated/grpc_pb/common.pb.dart' as commonpb;
 
@@ -14,6 +15,7 @@ class MessageMapper {
     final attachments = msg.attachments
       .map((a) => _attachmentFromProto(a))
       .toList();
+    final replyMarkup = msg.hasReplyMarkup() ? _replyMarkupFromProto(msg.replyMarkup) : null;
     final poll = msg.hasPoll() ? _pollFromProto(msg.poll) : null;
 
     return Message(
@@ -33,6 +35,7 @@ class MessageMapper {
       replyToMessageDeleted: msg.replyToMessageDeleted,
       forwardedFromMessageDeleted: msg.forwardedFromMessageDeleted,
       attachments: attachments,
+      replyMarkup: replyMarkup,
       poll: poll,
     );
   }
@@ -52,6 +55,22 @@ class MessageMapper {
       anonymous: p.anonymous,
       options: options,
     );
+  }
+
+  static ReplyMarkup? _replyMarkupFromProto(chatpb.ReplyMarkup p) {
+    if (p.inlineKeyboard.isEmpty) {
+      return null;
+    }
+
+    final rows = p.inlineKeyboard.map((row) {
+      final buttons = row.buttons.map((b) => InlineKeyboardButton(
+        text: b.text,
+        callbackData: b.callbackData,
+      )).toList();
+      return InlineKeyboardRow(buttons: buttons);
+    }).toList();
+
+    return ReplyMarkup(inlineKeyboard: rows);
   }
 
   static ChatAttachment _attachmentFromProto(chatpb.ChatAttachment a) {

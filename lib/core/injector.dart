@@ -12,6 +12,7 @@ import 'package:voosu/data/data_sources/remote/search_remote_datasource.dart';
 import 'package:voosu/data/repositories/account_repository_impl.dart';
 import 'package:voosu/data/repositories/auth_repository_impl.dart';
 import 'package:voosu/data/repositories/user_chat_repository_impl.dart';
+import 'package:voosu/data/data_sources/local/chat_notification_settings_local_data_source.dart';
 import 'package:voosu/domain/repositories/account_repository.dart';
 import 'package:voosu/domain/repositories/auth_repository.dart';
 import 'package:voosu/domain/repositories/chat_repository.dart';
@@ -30,7 +31,10 @@ import 'package:voosu/domain/usecases/chat/remove_pending_message_usecase.dart';
 import 'package:voosu/domain/usecases/chat/save_pending_message_usecase.dart';
 import 'package:voosu/domain/usecases/chat/send_chat_message_usecase.dart';
 import 'package:voosu/domain/usecases/chat/upload_chat_file_usecase.dart';
+import 'package:voosu/domain/usecases/chat/send_chat_typing_usecase.dart';
+import 'package:voosu/domain/usecases/chat/report_inline_callback_usecase.dart';
 import 'package:voosu/domain/usecases/chat/chat_poll_usecase.dart';
+import 'package:voosu/domain/usecases/chat/set_chat_notifications_usecase.dart';
 import 'package:voosu/domain/usecases/search/search_users_usecase.dart';
 import 'package:voosu/presentation/screens/auth/bloc/auth_bloc.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_bloc.dart';
@@ -69,6 +73,10 @@ Future<void> init() async {
 
   sl.registerLazySingleton<GrpcChannelManager>(
     () => GrpcChannelManager(sl<ServerConfig>(), sl<AuthInterceptor>()),
+  );
+
+  sl.registerLazySingleton<ChatNotificationSettingsLocalDataSource>(
+    () => ChatNotificationSettingsLocalDataSourceImpl(),
   );
 
   sl.registerLazySingleton<IAuthRemoteDataSource>(
@@ -112,9 +120,12 @@ Future<void> init() async {
   sl.registerFactory(() => GetPendingForChatUseCase(sl()));
   sl.registerFactory(() => RemovePendingMessageUseCase(sl()));
   sl.registerFactory(() => UploadChatFileUseCase(sl()));
+  sl.registerFactory(() => SendChatTypingUseCase(sl()));
   sl.registerFactory(() => DeleteChatMessagesUseCase(sl()));
   sl.registerFactory(() => ClearChatHistoryUseCase(sl()));
   sl.registerFactory(() => DeleteChatUseCase(sl()));
+  sl.registerFactory(() => SetChatNotificationsUseCase(sl()));
+  sl.registerFactory(() => ReportInlineCallbackUseCase(sl()));
   sl.registerFactory(() => ChatPollUseCase(sl()));
 
   sl.registerFactory(
@@ -131,6 +142,10 @@ Future<void> init() async {
       clearChatHistoryUseCase: sl(),
       deleteChatUseCase: sl(),
       authBloc: sl<AuthBloc>(),
+      chatNotificationSettings: sl<ChatNotificationSettingsLocalDataSource>(),
+      sendChatTypingUseCase: sl<SendChatTypingUseCase>(),
+      setChatNotificationsUseCase: sl<SetChatNotificationsUseCase>(),
+      reportInlineCallbackUseCase: sl<ReportInlineCallbackUseCase>(),
       chatPollUseCase: sl<ChatPollUseCase>(),
     ),
   );
@@ -143,6 +158,7 @@ Future<void> init() async {
       logoutUseCase: sl(),
       tokenStorage: sl<UserLocalDataSourceImpl>(),
       authGuard: sl<AuthGuard>(),
+      chatNotificationSettings: sl<ChatNotificationSettingsLocalDataSource>(),
     ),
   );
 

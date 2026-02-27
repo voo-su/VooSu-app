@@ -12,6 +12,7 @@ class Chat {
   final int memberCount;
   final int? avatarFileId;
   final String? lastMessagePreview;
+  final bool notificationsMuted;
 
   Chat({
     required this.id,
@@ -27,6 +28,7 @@ class Chat {
     this.memberCount = 0,
     this.avatarFileId,
     this.lastMessagePreview,
+    this.notificationsMuted = false,
   });
 
   Chat copyWith({
@@ -34,6 +36,7 @@ class Chat {
     int? memberCount,
     int? avatarFileId,
     String? lastMessagePreview,
+    bool? notificationsMuted,
   }) {
     return Chat(
       id: id,
@@ -49,6 +52,7 @@ class Chat {
       memberCount: memberCount ?? this.memberCount,
       avatarFileId: avatarFileId ?? this.avatarFileId,
       lastMessagePreview: lastMessagePreview ?? this.lastMessagePreview,
+      notificationsMuted: notificationsMuted ?? this.notificationsMuted,
     );
   }
 }

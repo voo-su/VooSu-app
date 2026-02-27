@@ -71,6 +71,15 @@ class ChatMessagesForChatLoaded extends ChatEvent {
   List<Object?> get props => [chat, messages, updatedChats, pendingQueue];
 }
 
+class ChatToggleChatNotifications extends ChatEvent {
+  final Chat chat;
+
+  const ChatToggleChatNotifications(this.chat);
+
+  @override
+  List<Object?> get props => [chat];
+}
+
 class ChatSendMessage extends ChatEvent {
   final String text;
   final int replyToMessageId;
@@ -239,6 +248,10 @@ class ChatSelectAllMyMessages extends ChatEvent {
   const ChatSelectAllMyMessages();
 }
 
+class ChatSendTyping extends ChatEvent {
+  const ChatSendTyping();
+}
+
 class ChatClearHistory extends ChatEvent {
   const ChatClearHistory();
 }
@@ -254,6 +267,16 @@ class ChatDeleteChat extends ChatEvent {
 
 class ChatLoadMoreMessages extends ChatEvent {
   const ChatLoadMoreMessages();
+}
+
+class ChatInlineCallbackPressed extends ChatEvent {
+  final int messageId;
+  final String callbackData;
+
+  const ChatInlineCallbackPressed(this.messageId, this.callbackData);
+
+  @override
+  List<Object?> get props => [messageId, callbackData];
 }
 
 class ChatCancelPendingFromQueue extends ChatEvent {

@@ -5,6 +5,7 @@ import 'package:voosu/core/date_formatter.dart';
 import 'package:voosu/domain/entities/chat_attachment.dart';
 import 'package:voosu/domain/entities/message.dart';
 import 'package:voosu/domain/entities/poll.dart';
+import 'package:voosu/domain/entities/reply_markup.dart';
 import 'package:voosu/presentation/screens/chat/widgets/chat_attachment_view.dart';
 
 String _attachmentTypeLabel(ChatAttachment att) {
@@ -52,6 +53,7 @@ class MessageBubble extends StatelessWidget {
   final bool isSelectionMode;
   final bool isSelected;
   final VoidCallback? onToggleSelection;
+  final void Function(int messageId, String callbackData)? onInlineButtonPressed;
   final void Function(int messageId, int optionId)? onVotePoll;
 
   const MessageBubble({
@@ -68,6 +70,7 @@ class MessageBubble extends StatelessWidget {
     this.isSelectionMode = false,
     this.isSelected = false,
     this.onToggleSelection,
+    this.onInlineButtonPressed,
     this.onVotePoll,
   });
 
@@ -493,6 +496,14 @@ class MessageBubble extends StatelessWidget {
                           onVote: onVotePoll,
                         ),
                       ],
+                      if (message.replyMarkup != null && message.replyMarkup!.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        _InlineKeyboardWidget(
+                          replyMarkup: message.replyMarkup!,
+                          messageId: message.id,
+                          onButtonPressed: onInlineButtonPressed,
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -673,6 +684,71 @@ class _PollWidget extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+class _InlineKeyboardWidget extends StatelessWidget {
+  final ReplyMarkup replyMarkup;
+  final int messageId;
+  final void Function(int messageId, String callbackData)? onButtonPressed;
+
+  const _InlineKeyboardWidget({
+    required this.replyMarkup,
+    required this.messageId,
+    this.onButtonPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final color = isDark
+      ? theme.colorScheme.primary.withValues(alpha: 0.85)
+      : theme.colorScheme.primary;
+    final bgColor = isDark
+      ? color.withValues(alpha: 0.15)
+      : color.withValues(alpha: 0.12);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: replyMarkup.inlineKeyboard.map((row) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: row.buttons.map((btn) {
+              return Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: Material(
+                  color: bgColor,
+                  borderRadius: BorderRadius.circular(8),
+                  child: InkWell(
+                    onTap: onButtonPressed != null
+                      ? () => onButtonPressed!(messageId, btn.callbackData)
+                      : null,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      child: Text(
+                        btn.text,
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: color,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        );
+      }).toList(),
     );
   }
 }
