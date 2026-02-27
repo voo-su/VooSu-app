@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:voosu/core/util.dart';
 import 'package:voosu/data/data_sources/local/chat_notification_settings_local_data_source.dart';
+import 'package:voosu/data/services/user_online_status_service.dart';
 import 'package:voosu/domain/entities/chat.dart';
 import 'package:voosu/presentation/screens/auth/bloc/auth_bloc.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_bloc.dart';
@@ -122,18 +123,23 @@ class ChatContentHeader extends StatelessWidget {
 
   Widget _buildChatHeader(BuildContext context, ThemeData theme) {
     final chat = selectedChat!;
+    final onlineService = context.read<UserOnlineStatusService>();
     final notificationSettings = context
         .read<ChatNotificationSettingsLocalDataSource>();
+    final isOnline = chat.isGroup
+        ? null
+        : (onlineService.isOnline(chat.peerUserId) ?? false);
     final isTyping =
         chatState.typingUserId != null &&
         chatState.typingUserId == chat.peerUserId;
     final title = ChatListItem.title(chat);
 
-    final groupSubtitle = chat.isGroup
+    final subtitle = chat.isGroup
         ? participantsSubtitle(chat.memberCount)
-        : null;
-    final subtitleColor =
-        theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8);
+        : (isOnline == true ? 'в сети' : 'не в сети');
+    final subtitleColor = isOnline == true
+        ? theme.colorScheme.primary
+        : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8);
     final typingColor = theme.colorScheme.primary;
 
     return StreamBuilder<Set<int>>(
@@ -160,6 +166,7 @@ class ChatContentHeader extends StatelessWidget {
                     children: [
                       ChatListAvatar(
                         title: title,
+                        isOnline: isOnline,
                         size: 40,
                         avatarFileId: chat.avatarFileId,
                       ),
@@ -198,9 +205,9 @@ class ChatContentHeader extends StatelessWidget {
                                   ),
                                 ],
                               )
-                            else if (groupSubtitle != null)
+                            else
                               Text(
-                                groupSubtitle,
+                                subtitle,
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: subtitleColor,
                                   fontSize: 13,

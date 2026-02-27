@@ -8,7 +8,9 @@ import 'package:voosu/domain/entities/message_deleted_payload.dart';
 import 'package:voosu/domain/entities/message_read_payload.dart';
 import 'package:voosu/core/auth_interceptor.dart';
 import 'package:voosu/core/grpc_channel_manager.dart';
+import 'package:voosu/core/connection_status.dart';
 import 'package:voosu/core/server_config.dart';
+import 'package:voosu/data/services/user_online_status_service.dart';
 import 'package:voosu/data/data_sources/local/user_local_data_source.dart';
 import 'package:voosu/data/data_sources/remote/account_remote_datasource.dart';
 import 'package:voosu/data/data_sources/remote/auth_remote_datasource.dart';
@@ -82,6 +84,14 @@ Future<void> init() async {
     () => GrpcChannelManager(sl<ServerConfig>(), sl<AuthInterceptor>()),
   );
 
+  sl.registerLazySingleton<ConnectionStatusService>(
+    () => ConnectionStatusService(),
+  );
+
+  sl.registerLazySingleton<UserOnlineStatusService>(
+    () => UserOnlineStatusService(),
+  );
+
   sl.registerLazySingleton<StreamController<Message>>(
     () => StreamController<Message>.broadcast(),
   );
@@ -120,9 +130,11 @@ Future<void> init() async {
       sl<IAccountRemoteDataSource>(),
       sl<UserLocalDataSourceImpl>(),
       sl<GetChatsUseCase>(),
+      sl<ConnectionStatusService>(),
       getChatMessagesUseCase: sl<GetChatMessagesUseCase>(),
       chatRepository: sl<ChatRepository>(),
       cacheDb: sl<AppDatabase>(),
+      userOnlineStatusService: sl<UserOnlineStatusService>(),
       newMessageSink: sl<StreamController<Message>>().sink,
       messageDeletedSink: sl<StreamController<MessageDeletedPayload>>().sink,
       messageReadSink: sl<StreamController<MessageReadPayload>>().sink,
@@ -142,6 +154,7 @@ Future<void> init() async {
     () => AccountRemoteDataSource(
       sl<GrpcChannelManager>(),
       sl<UserLocalDataSourceImpl>(),
+      sl<ConnectionStatusService>(),
     ),
   );
 

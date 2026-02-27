@@ -9,6 +9,7 @@ import 'package:voosu/presentation/screens/chat/chat_screen.dart';
 import 'package:voosu/presentation/screens/menu/mobile_menu_screen.dart';
 import 'package:voosu/presentation/screens/projects/projects_screen.dart';
 import 'package:voosu/presentation/widgets/app_bottom_nav.dart';
+import 'package:voosu/presentation/widgets/connection_status_bar.dart';
 import 'package:voosu/presentation/widgets/side_navigation.dart';
 
 void _confirmLogout(BuildContext context) {
@@ -97,20 +98,25 @@ class MainLayout extends StatelessWidget {
           );
 
     return Scaffold(
-      body: isMobile
-          ? Column(
-              children: [
-                Expanded(child: _tabBody(context, tab)),
-                nav,
-              ],
-            )
-          : Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                nav,
-                Expanded(child: _tabBody(context, tab)),
-              ],
-            ),
+      body: Stack(
+        children: [
+          isMobile
+              ? Column(
+                  children: [
+                    Expanded(child: _tabBody(context, tab)),
+                    nav,
+                  ],
+                )
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    nav,
+                    Expanded(child: _tabBody(context, tab)),
+                  ],
+                ),
+          const ConnectionStatusBar(showInScaffold: true),
+        ],
+      ),
     );
   }
 }

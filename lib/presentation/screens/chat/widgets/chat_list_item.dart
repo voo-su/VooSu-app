@@ -5,6 +5,7 @@ import 'package:voosu/presentation/screens/chat/widgets/chat_list_avatar.dart';
 class ChatListItem extends StatelessWidget {
   final Chat chat;
   final bool isSelected;
+  final bool? isOnline;
   final bool notificationsMuted;
   final VoidCallback onTap;
   final VoidCallback? onToggleNotifications;
@@ -14,6 +15,7 @@ class ChatListItem extends StatelessWidget {
     super.key,
     required this.chat,
     required this.isSelected,
+    this.isOnline,
     this.notificationsMuted = false,
     required this.onTap,
     this.onToggleNotifications,
@@ -58,6 +60,7 @@ class ChatListItem extends StatelessWidget {
             children: [
               ChatListAvatar(
                 title: titleStr,
+                isOnline: isOnline,
                 avatarFileId: chat.avatarFileId,
               ),
               const SizedBox(width: 12),

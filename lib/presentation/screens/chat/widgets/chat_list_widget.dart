@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:voosu/data/data_sources/local/chat_notification_settings_local_data_source.dart';
+import 'package:voosu/data/services/user_online_status_service.dart';
 import 'package:voosu/domain/entities/chat.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_bloc.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_event.dart';
@@ -47,6 +48,7 @@ class _ChatListWidgetState extends State<ChatListWidget> {
       );
     }
 
+    final onlineService = context.read<UserOnlineStatusService>();
     final notificationSettings = context.read<ChatNotificationSettingsLocalDataSource>();
 
     return StreamBuilder<Set<int>>(
@@ -54,24 +56,34 @@ class _ChatListWidgetState extends State<ChatListWidget> {
       initialData: notificationSettings.mutedChatIds,
       builder: (context, mutedSnapshot) {
         final mutedIds = mutedSnapshot.data ?? {};
-        return ListView.separated(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          itemCount: state.chats.length,
-          separatorBuilder: (context, index) => const Divider(
-            height: 1,
-            indent: 60,
-          ),
-          itemBuilder: (context, index) {
-            final chat = state.chats[index];
-            return ChatListItem(
-              chat: chat,
-              isSelected: chat == state.selectedChat,
-              notificationsMuted: mutedIds.contains(chat.id),
-              onTap: () => context.read<ChatBloc>().add(ChatSelectChat(chat)),
-              onToggleNotifications: () => context.read<ChatBloc>().add(
-                ChatToggleChatNotifications(chat),
+        return StreamBuilder<Map<int, bool>>(
+          stream: onlineService.statusStream,
+          initialData: onlineService.statusMap,
+          builder: (context, statusSnapshot) {
+            final statusMap = statusSnapshot.data ?? {};
+            return ListView.separated(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              itemCount: state.chats.length,
+              separatorBuilder: (context, index) => const Divider(
+                height: 1,
+                indent: 60
               ),
-              onDeleteChat: () => _showDeleteChatConfirm(context, chat),
+              itemBuilder: (context, index) {
+                final chat = state.chats[index];
+                return ChatListItem(
+                  chat: chat,
+                  isSelected: chat == state.selectedChat,
+                  isOnline: chat.isGroup
+                    ? null
+                    : (statusMap[chat.peerUserId] ?? false),
+                  notificationsMuted: mutedIds.contains(chat.id),
+                  onTap: () => context.read<ChatBloc>().add(ChatSelectChat(chat)),
+                  onToggleNotifications: () => context.read<ChatBloc>().add(
+                    ChatToggleChatNotifications(chat),
+                  ),
+                  onDeleteChat: () => _showDeleteChatConfirm(context, chat),
+                );
+              },
             );
           },
         );

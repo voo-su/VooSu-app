@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fixnum/fixnum.dart';
 import 'package:grpc/grpc.dart';
+import 'package:voosu/core/connection_status.dart';
 import 'package:voosu/core/failures.dart';
 import 'package:voosu/core/grpc_channel_manager.dart';
 import 'package:voosu/core/grpc_error_handler.dart';
@@ -31,10 +32,12 @@ abstract class IAccountRemoteDataSource {
 class AccountRemoteDataSource implements IAccountRemoteDataSource {
   final GrpcChannelManager _channelManager;
   final UserLocalDataSourceImpl _userLocal;
+  final ConnectionStatusService? connectionStatusService;
 
   AccountRemoteDataSource(
     this._channelManager,
     this._userLocal,
+    this.connectionStatusService,
   );
 
   accountpb.AccountServiceClient get _client => _channelManager.accountClient;
@@ -129,6 +132,7 @@ class AccountRemoteDataSource implements IAccountRemoteDataSource {
       }
 
       try {
+        connectionStatusService?.setConnecting();
         startPinging();
 
         final syncState = await _userLocal.getSyncState();
@@ -159,6 +163,7 @@ class AccountRemoteDataSource implements IAccountRemoteDataSource {
           attempt = 0;
           if (!connectedOnceThisAttempt) {
             connectedOnceThisAttempt = true;
+            connectionStatusService?.setConnected();
           }
 
 
@@ -182,12 +187,14 @@ class AccountRemoteDataSource implements IAccountRemoteDataSource {
 
         final wait = policy.next(attempt);
         attempt++;
+        connectionStatusService?.setDisconnected();
         Logs().i('getUpdates - дисконнект - переподключение ${wait.inMilliseconds} - $attempt');
         await Future.delayed(wait);
         continue;
       } catch (e) {
         final wait = policy.next(attempt);
         attempt++;
+        connectionStatusService?.setDisconnected();
         Logs().e('getUpdates error: $e | переподключение ${wait.inMilliseconds} - $attempt');
         await Future.delayed(wait);
         continue;

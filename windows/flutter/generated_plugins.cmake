@@ -3,6 +3,7 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  connectivity_plus
   desktop_drop
   emoji_picker_flutter
   sqlite3_flutter_libs

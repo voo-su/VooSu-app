@@ -1,12 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:voosu/core/connection_status.dart';
 import 'package:voosu/core/log/logs.dart';
 import 'package:voosu/core/reconnect_policy.dart';
 import 'package:voosu/data/data_sources/local/user_local_data_source.dart';
 import 'package:voosu/data/data_sources/remote/account_remote_datasource.dart';
 import 'package:voosu/data/db/app_database.dart';
 import 'package:voosu/data/mappers/message_mapper.dart';
+import 'package:voosu/data/services/user_online_status_service.dart';
 import 'package:voosu/domain/entities/message.dart';
 import 'package:voosu/domain/entities/message_deleted_payload.dart';
 import 'package:voosu/domain/entities/message_read_payload.dart';
@@ -23,10 +25,13 @@ class PtsSyncService {
   final GetChatsUseCase _getChatsUseCase;
   final GetChatMessagesUseCase? _getChatMessagesUseCase;
   final ChatRepository? _chatRepository;
+  final ConnectionStatusService? _connectionStatusService;
+  final UserOnlineStatusService? _userOnlineStatusService;
   final ReconnectPolicy _reconnectPolicy;
   final AppDatabase? _cacheDb;
 
   StreamSubscription<UpdateResponse>? _updatesSubscription;
+  StreamSubscription<ConnectionStatus>? _statusSubscription;
   Timer? _backgroundRefreshTimer;
   bool _isSyncing = false;
   static const Duration _backgroundSyncInterval = Duration(minutes: 5);
@@ -58,9 +63,11 @@ class PtsSyncService {
   PtsSyncService(
     this._accountRemoteDataSource,
     this._userLocalDataSource,
-    this._getChatsUseCase, {
+    this._getChatsUseCase,
+    this._connectionStatusService, {
     GetChatMessagesUseCase? getChatMessagesUseCase,
     ChatRepository? chatRepository,
+    UserOnlineStatusService? userOnlineStatusService,
     ReconnectPolicy? reconnectPolicy,
     AppDatabase? cacheDb,
     StreamSink<Message>? newMessageSink,
@@ -71,6 +78,7 @@ class PtsSyncService {
     StreamSink<Object?>? syncRestoredSink,
   })  : _getChatMessagesUseCase = getChatMessagesUseCase,
         _chatRepository = chatRepository,
+        _userOnlineStatusService = userOnlineStatusService,
         _reconnectPolicy = reconnectPolicy ?? const ReconnectPolicy.hybrid(),
         _cacheDb = cacheDb,
         _newMessageSink = newMessageSink,
@@ -86,8 +94,16 @@ class PtsSyncService {
       return;
     }
 
+    final status = _connectionStatusService?.currentStatus;
+    if (status == ConnectionStatus.waitingForNetwork) {
+      _connectionStatusService?.setWaitingForNetwork();
+      _startListeningForNetwork();
+      return;
+    }
+
     _running = true;
     _reconnectAttempt = 0;
+    _startListeningForNetwork();
     _startPullTimer();
 
     while (_running) {
@@ -95,6 +111,7 @@ class PtsSyncService {
         await _runOneSyncCycle();
       } catch (e, stackTrace) {
         Logs().e('Ошибка цикла синхронизации', e, stackTrace);
+        _connectionStatusService?.setDisconnected();
       }
 
       if (!_running) break;
@@ -106,7 +123,19 @@ class PtsSyncService {
     }
   }
 
+  void _startListeningForNetwork() {
+    _statusSubscription?.cancel();
+    if (_connectionStatusService == null) return;
+    _statusSubscription = _connectionStatusService.statusStream.listen((status) {
+      if (status != ConnectionStatus.waitingForNetwork && !_running) {
+        Logs().i('PtsSyncService: сеть доступна, запуск синхронизации');
+        startSync();
+      }
+    });
+  }
+
   Future<void> _runOneSyncCycle() async {
+    _connectionStatusService?.setConnecting();
     _initialSyncCompleter = Completer<void>();
     _cycleCompleter = Completer<void>();
 
@@ -131,6 +160,7 @@ class PtsSyncService {
         _wasDisconnected = true;
         _backgroundRefreshTimer?.cancel();
         _backgroundRefreshTimer = null;
+        _connectionStatusService?.setDisconnected();
         if (!(_cycleCompleter?.isCompleted ?? true)) {
           _cycleCompleter?.complete();
         }
@@ -140,6 +170,7 @@ class PtsSyncService {
         _wasDisconnected = true;
         _backgroundRefreshTimer?.cancel();
         _backgroundRefreshTimer = null;
+        _connectionStatusService?.setDisconnected();
         if (!(_cycleCompleter?.isCompleted ?? true)) {
           _cycleCompleter?.complete();
         }
@@ -183,6 +214,8 @@ class PtsSyncService {
     _pullTimer = null;
     _backgroundRefreshTimer?.cancel();
     _backgroundRefreshTimer = null;
+    await _statusSubscription?.cancel();
+    _statusSubscription = null;
     await _updatesSubscription?.cancel();
     _updatesSubscription = null;
 
@@ -302,6 +335,7 @@ class PtsSyncService {
           _syncRestoredSink?.add(null);
           Logs().d('PtsSyncService: соединение восстановлено, уведомление подписчиков');
         }
+        _connectionStatusService?.setConnected();
         _retryPendingMessages();
       }
 
@@ -373,6 +407,10 @@ class PtsSyncService {
 
   Future<void> _processUpdate(account_pb.Update update) async {
     try {
+      if (update.hasUserStatus()) {
+        await _processUserStatus(update.userStatus);
+      }
+
       if (update.hasNewMessage()) {
         await _processNewMessage(update.newMessage);
       }
@@ -456,4 +494,14 @@ class PtsSyncService {
     }
   }
 
+  Future<void> _processUserStatus(account_pb.UpdateUserStatus update) async {
+    try {
+      final userId = update.userId.toInt();
+      final online = update.status;
+      _userOnlineStatusService?.setUserOnline(userId, online);
+      Logs().d('PtsSyncService: статус пользователя $userId -> ${online ? "онлайн" : "офлайн"}');
+    } catch (e, stackTrace) {
+      Logs().e('Ошибка обработки статуса пользователя', e, stackTrace);
+    }
+  }
 }

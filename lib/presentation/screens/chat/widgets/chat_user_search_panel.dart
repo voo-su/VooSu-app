@@ -204,6 +204,7 @@ class _ChatUserSearchPanelState extends State<ChatUserSearchPanel> {
                     title: user.name.isNotEmpty
                         ? user.name
                         : (user.username.isNotEmpty ? user.username : '?'),
+                    isOnline: false,
                     size: 48,
                   ),
                   const SizedBox(width: 12),

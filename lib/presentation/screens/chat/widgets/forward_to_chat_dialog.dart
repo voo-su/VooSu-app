@@ -50,6 +50,7 @@ Future<Chat?> showForwardToChatDialog({
                 return ChatListItem(
                   chat: chat,
                   isSelected: false,
+                  isOnline: false,
                   onTap: () => Navigator.of(context).pop(chat),
                 );
               },
