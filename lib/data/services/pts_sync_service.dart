@@ -7,6 +7,9 @@ import 'package:voosu/data/data_sources/local/user_local_data_source.dart';
 import 'package:voosu/data/data_sources/remote/account_remote_datasource.dart';
 import 'package:voosu/data/db/app_database.dart';
 import 'package:voosu/data/mappers/message_mapper.dart';
+import 'package:voosu/domain/entities/message.dart';
+import 'package:voosu/domain/entities/message_deleted_payload.dart';
+import 'package:voosu/domain/entities/message_read_payload.dart';
 import 'package:voosu/domain/entities/attachment_upload.dart';
 import 'package:voosu/domain/repositories/chat_repository.dart';
 import 'package:voosu/domain/usecases/chat/get_chat_messages_usecase.dart';
@@ -38,7 +41,11 @@ class PtsSyncService {
 
   bool _initialStateRetrieved = false;
 
+  final StreamSink<Message>? _newMessageSink;
+  final StreamSink<MessageDeletedPayload>? _messageDeletedSink;
+  final StreamSink<MessageReadPayload>? _messageReadSink;
   final StreamSink<int>? _userTypingSink;
+  final StreamSink<Object?>? _chatListRefreshSink;
   final StreamSink<Object?>? _syncRestoredSink;
 
   static const int _initialMessagesPerChat = 50;
@@ -56,13 +63,21 @@ class PtsSyncService {
     ChatRepository? chatRepository,
     ReconnectPolicy? reconnectPolicy,
     AppDatabase? cacheDb,
+    StreamSink<Message>? newMessageSink,
+    StreamSink<MessageDeletedPayload>? messageDeletedSink,
+    StreamSink<MessageReadPayload>? messageReadSink,
     StreamSink<int>? userTypingSink,
+    StreamSink<Object?>? chatListRefreshSink,
     StreamSink<Object?>? syncRestoredSink,
   })  : _getChatMessagesUseCase = getChatMessagesUseCase,
         _chatRepository = chatRepository,
         _reconnectPolicy = reconnectPolicy ?? const ReconnectPolicy.hybrid(),
         _cacheDb = cacheDb,
+        _newMessageSink = newMessageSink,
+        _messageDeletedSink = messageDeletedSink,
+        _messageReadSink = messageReadSink,
         _userTypingSink = userTypingSink,
+        _chatListRefreshSink = chatListRefreshSink,
         _syncRestoredSink = syncRestoredSink;
 
   Future<void> startSync() async {
@@ -105,6 +120,7 @@ class PtsSyncService {
 
       try {
         await _getChatsUseCase();
+        _chatListRefreshSink?.add(null);
       } catch (_) {}
     });
 
@@ -138,6 +154,7 @@ class PtsSyncService {
     try {
       final chats = await _getChatsUseCase();
       Logs().i('Загружено ${chats.length} чатов при полной пересинхронизации');
+      _chatListRefreshSink?.add(null);
       if (_getChatMessagesUseCase != null) {
         for (final chat in chats) {
           try {
@@ -364,6 +381,10 @@ class PtsSyncService {
         await _processMessageDeleted(update.messageDeleted);
       }
 
+      if (update.hasMessageRead()) {
+        await _processMessageRead(update.messageRead);
+      }
+
       if (update.hasUserTyping()) {
         await _processUserTyping(update.userTyping);
       }
@@ -379,6 +400,8 @@ class PtsSyncService {
       }
 
       final message = MessageMapper.fromProto(update.message);
+      _newMessageSink?.add(message);
+      _chatListRefreshSink?.add(null);
       Logs().d('PtsSyncService: новое сообщение peer=${message.peerUserId} from=${message.fromPeerUserId} id=${message.id}');
       unawaited(_cacheDb?.cacheMessage(message) ?? Future.value());
     } catch (e, stackTrace) {
@@ -395,12 +418,31 @@ class PtsSyncService {
       final messageIds = update.messageIds.map((id) => id.toInt()).toList();
       await _cacheDb?.deleteCachedMessages(messageIds);
 
-      Logs().d(
-        'PtsSyncService: удаление сообщений peer=${update.peer.userId.toInt()} '
-        'from=${update.fromPeer.userId.toInt()} ids=$messageIds',
+      final payload = MessageDeletedPayload(
+        peerId: update.peer.userId.toInt(),
+        fromPeerId: update.fromPeer.userId.toInt(),
+        messageIds: messageIds,
       );
+      _messageDeletedSink?.add(payload);
+      _chatListRefreshSink?.add(null);
+      Logs().d('PtsSyncService: удаление сообщений peer=${payload.peerId} from=${payload.fromPeerId} ids=${payload.messageIds}');
     } catch (e, stackTrace) {
       Logs().e('Ошибка обработки удаления сообщений', e, stackTrace);
+    }
+  }
+
+  Future<void> _processMessageRead(UpdateMessageRead update) async {
+    try {
+      final payload = MessageReadPayload(
+        readerUserId: update.readerUserId.toInt(),
+        peerUserId: update.peerUserId.toInt(),
+        lastReadMessageId: update.lastReadMessageId.toInt(),
+      );
+      _messageReadSink?.add(payload);
+      _chatListRefreshSink?.add(null);
+      Logs().d('PtsSyncService: сообщения прочитаны reader=${payload.readerUserId} peer=${payload.peerUserId} upTo=${payload.lastReadMessageId}');
+    } catch (e, stackTrace) {
+      Logs().e('Ошибка обработки прочтения сообщений', e, stackTrace);
     }
   }
 

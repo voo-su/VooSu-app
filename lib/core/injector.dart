@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:get_it/get_it.dart';
 import 'package:voosu/core/auth_guard.dart';
 import 'package:voosu/data/db/app_database.dart';
+import 'package:voosu/domain/entities/message.dart';
+import 'package:voosu/domain/entities/message_deleted_payload.dart';
+import 'package:voosu/domain/entities/message_read_payload.dart';
 import 'package:voosu/core/auth_interceptor.dart';
 import 'package:voosu/core/grpc_channel_manager.dart';
 import 'package:voosu/core/server_config.dart';
@@ -15,6 +18,7 @@ import 'package:voosu/data/repositories/account_repository_impl.dart';
 import 'package:voosu/data/repositories/auth_repository_impl.dart';
 import 'package:voosu/data/repositories/user_chat_repository_impl.dart';
 import 'package:voosu/data/data_sources/local/chat_notification_settings_local_data_source.dart';
+import 'package:voosu/data/services/notification_sound_service.dart';
 import 'package:voosu/data/services/pts_sync_service.dart';
 import 'package:voosu/domain/repositories/account_repository.dart';
 import 'package:voosu/domain/repositories/auth_repository.dart';
@@ -78,13 +82,33 @@ Future<void> init() async {
     () => GrpcChannelManager(sl<ServerConfig>(), sl<AuthInterceptor>()),
   );
 
+  sl.registerLazySingleton<StreamController<Message>>(
+    () => StreamController<Message>.broadcast(),
+  );
+
+  sl.registerLazySingleton<StreamController<MessageDeletedPayload>>(
+    () => StreamController<MessageDeletedPayload>.broadcast(),
+  );
+
+  sl.registerLazySingleton<StreamController<MessageReadPayload>>(
+    () => StreamController<MessageReadPayload>.broadcast(),
+  );
+
   sl.registerLazySingleton<StreamController<int>>(
     () => StreamController<int>.broadcast(),
   );
 
   sl.registerLazySingleton<StreamController<Object?>>(
+    () => StreamController<Object?>.broadcast(),
+  );
+
+  sl.registerLazySingleton<StreamController<Object?>>(
     instanceName: 'syncRestored',
     () => StreamController<Object?>.broadcast(),
+  );
+
+  sl.registerLazySingleton<NotificationSoundService>(
+    () => NotificationSoundService(),
   );
 
   sl.registerLazySingleton<ChatNotificationSettingsLocalDataSource>(
@@ -99,7 +123,11 @@ Future<void> init() async {
       getChatMessagesUseCase: sl<GetChatMessagesUseCase>(),
       chatRepository: sl<ChatRepository>(),
       cacheDb: sl<AppDatabase>(),
+      newMessageSink: sl<StreamController<Message>>().sink,
+      messageDeletedSink: sl<StreamController<MessageDeletedPayload>>().sink,
+      messageReadSink: sl<StreamController<MessageReadPayload>>().sink,
       userTypingSink: sl<StreamController<int>>().sink,
+      chatListRefreshSink: sl<StreamController<Object?>>().sink,
       syncRestoredSink: sl<StreamController<Object?>>(instanceName: 'syncRestored').sink,
     ),
   );
@@ -167,8 +195,13 @@ Future<void> init() async {
       clearChatHistoryUseCase: sl(),
       deleteChatUseCase: sl(),
       authBloc: sl<AuthBloc>(),
+      notificationSoundService: sl<NotificationSoundService>(),
       chatNotificationSettings: sl<ChatNotificationSettingsLocalDataSource>(),
+      newMessageStream: sl<StreamController<Message>>().stream,
+      messageDeletedStream: sl<StreamController<MessageDeletedPayload>>().stream,
+      messageReadStream: sl<StreamController<MessageReadPayload>>().stream,
       userTypingStream: sl<StreamController<int>>().stream,
+      chatListRefreshStream: sl<StreamController<Object?>>().stream,
       syncRestoredStream: sl<StreamController<Object?>>(instanceName: 'syncRestored').stream,
       sendChatTypingUseCase: sl<SendChatTypingUseCase>(),
       setChatNotificationsUseCase: sl<SetChatNotificationsUseCase>(),

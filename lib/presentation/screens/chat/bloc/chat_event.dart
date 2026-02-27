@@ -212,6 +212,15 @@ class ChatBackToList extends ChatEvent {
   const ChatBackToList();
 }
 
+class ChatNewMessageReceived extends ChatEvent {
+  final Message message;
+
+  const ChatNewMessageReceived(this.message);
+
+  @override
+  List<Object?> get props => [message];
+}
+
 class ChatDeleteMessage extends ChatEvent {
   final Message message;
   final bool forEveryone;
@@ -246,6 +255,36 @@ class ChatClearSelection extends ChatEvent {
 
 class ChatSelectAllMyMessages extends ChatEvent {
   const ChatSelectAllMyMessages();
+}
+
+class ChatMessagesDeletedFromServer extends ChatEvent {
+  final int peerId;
+  final int fromPeerId;
+  final List<int> messageIds;
+
+  const ChatMessagesDeletedFromServer({
+    required this.peerId,
+    required this.fromPeerId,
+    required this.messageIds,
+  });
+
+  @override
+  List<Object?> get props => [peerId, fromPeerId, messageIds];
+}
+
+class ChatMessagesRead extends ChatEvent {
+  final int readerUserId;
+  final int peerUserId;
+  final int lastReadMessageId;
+
+  const ChatMessagesRead({
+    required this.readerUserId,
+    required this.peerUserId,
+    required this.lastReadMessageId,
+  });
+
+  @override
+  List<Object?> get props => [readerUserId, peerUserId, lastReadMessageId];
 }
 
 class ChatUserTyping extends ChatEvent {

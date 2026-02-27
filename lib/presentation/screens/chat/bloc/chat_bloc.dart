@@ -6,9 +6,12 @@ import 'package:voosu/core/client_local_id.dart';
 import 'package:voosu/core/failures.dart';
 import 'package:voosu/core/log/logs.dart';
 import 'package:voosu/data/data_sources/local/chat_notification_settings_local_data_source.dart';
+import 'package:voosu/data/services/notification_sound_service.dart';
 import 'package:voosu/domain/entities/attachment_upload.dart';
 import 'package:voosu/domain/entities/chat.dart';
 import 'package:voosu/domain/entities/message.dart';
+import 'package:voosu/domain/entities/message_deleted_payload.dart';
+import 'package:voosu/domain/entities/message_read_payload.dart';
 import 'package:voosu/domain/usecases/chat/create_chat_usecase.dart';
 import 'package:voosu/domain/usecases/chat/create_group_chat_usecase.dart';
 import 'package:voosu/domain/usecases/chat/clear_chat_history_usecase.dart';
@@ -47,10 +50,16 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   final ReportInlineCallbackUseCase reportInlineCallbackUseCase;
   final ChatPollUseCase chatPollUseCase;
   final AuthBloc authBloc;
+  final NotificationSoundService? notificationSoundService;
   final ChatNotificationSettingsLocalDataSource? chatNotificationSettings;
+  StreamSubscription<Message>? _newMessageSubscription;
+  StreamSubscription<MessageDeletedPayload>? _messageDeletedSubscription;
+  StreamSubscription<MessageReadPayload>? _messageReadSubscription;
   StreamSubscription<int>? _userTypingSubscription;
+  StreamSubscription<Object?>? _chatListRefreshSubscription;
   StreamSubscription<Object?>? _syncRestoredSubscription;
   Timer? _typingClearTimer;
+  Timer? _chatListRefreshDebounce;
 
   ChatBloc({
     required this.getChatsUseCase,
@@ -69,8 +78,13 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     required this.reportInlineCallbackUseCase,
     required this.chatPollUseCase,
     required this.authBloc,
+    this.notificationSoundService,
     this.chatNotificationSettings,
+    Stream<Message>? newMessageStream,
+    Stream<MessageDeletedPayload>? messageDeletedStream,
+    Stream<MessageReadPayload>? messageReadStream,
     Stream<int>? userTypingStream,
+    Stream<Object?>? chatListRefreshStream,
     Stream<Object?>? syncRestoredStream,
   }) : super(const ChatState()) {
     on<ChatStarted>(_onStarted);
@@ -91,11 +105,14 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<ChatClearError>(_onClearError);
     on<ChatBackToList>(_onBackToList);
     on<ChatToggleChatNotifications>(_onToggleChatNotifications);
+    on<ChatNewMessageReceived>(_onNewMessageReceived);
     on<ChatDeleteMessage>(_onDeleteMessage);
     on<ChatToggleMessageSelection>(_onToggleMessageSelection);
     on<ChatDeleteSelectedMessages>(_onDeleteSelectedMessages);
     on<ChatClearSelection>(_onClearSelection);
     on<ChatSelectAllMyMessages>(_onSelectAllMyMessages);
+    on<ChatMessagesDeletedFromServer>(_onMessagesDeletedFromServer);
+    on<ChatMessagesRead>(_onMessagesRead);
     on<ChatUserTyping>(_onUserTyping);
     on<ChatClearTyping>(_onClearTyping);
     on<ChatSendTyping>(_onSendTyping);
@@ -108,9 +125,48 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<ChatVotePoll>(_onVotePoll);
     on<ChatCreatePoll>(_onCreatePoll);
 
+    if (newMessageStream != null) {
+      _newMessageSubscription = newMessageStream.listen((message) {
+        add(ChatNewMessageReceived(message));
+      });
+    }
+
+    if (messageDeletedStream != null) {
+      _messageDeletedSubscription = messageDeletedStream.listen((payload) {
+        add(
+          ChatMessagesDeletedFromServer(
+            peerId: payload.peerId,
+            fromPeerId: payload.fromPeerId,
+            messageIds: payload.messageIds,
+          ),
+        );
+      });
+    }
+
+    if (messageReadStream != null) {
+      _messageReadSubscription = messageReadStream.listen((payload) {
+        add(
+          ChatMessagesRead(
+            readerUserId: payload.readerUserId,
+            peerUserId: payload.peerUserId,
+            lastReadMessageId: payload.lastReadMessageId,
+          ),
+        );
+      });
+    }
+
     if (userTypingStream != null) {
       _userTypingSubscription = userTypingStream.listen((userId) {
         add(ChatUserTyping(userId));
+      });
+    }
+
+    if (chatListRefreshStream != null) {
+      _chatListRefreshSubscription = chatListRefreshStream.listen((_) {
+        _chatListRefreshDebounce?.cancel();
+        _chatListRefreshDebounce = Timer(const Duration(milliseconds: 150), () {
+          add(const ChatLoadChats(silent: true));
+        });
       });
     }
 
@@ -124,7 +180,12 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   @override
   Future<void> close() {
     _typingClearTimer?.cancel();
+    _chatListRefreshDebounce?.cancel();
+    _chatListRefreshSubscription?.cancel();
     _syncRestoredSubscription?.cancel();
+    _newMessageSubscription?.cancel();
+    _messageDeletedSubscription?.cancel();
+    _messageReadSubscription?.cancel();
     _userTypingSubscription?.cancel();
     return super.close();
   }
@@ -769,6 +830,73 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     emit(state.copyWith(chats: updatedChats));
   }
 
+  void _onNewMessageReceived(
+    ChatNewMessageReceived event,
+    Emitter<ChatState> emit,
+  ) {
+    final message = event.message;
+    final selectedChat = state.selectedChat;
+    final currentUserId = authBloc.state.user?.id ?? 0;
+    if (currentUserId == 0) {
+      return;
+    }
+
+    final isIncomingFromOther = message.fromPeerUserId != currentUserId;
+    if (isIncomingFromOther) {
+      final chatId = message.isGroupChat
+          ? -message.peerGroupId
+          : (message.peerUserId == currentUserId ? message.fromPeerUserId : message.peerUserId);
+
+      if (chatNotificationSettings?.isMuted(chatId) != true) {
+        notificationSoundService?.play();
+      }
+    }
+
+    final isInOpenChat =
+        selectedChat != null &&
+        (selectedChat.isGroup
+            ? message.isInGroupChat(selectedChat.peerGroupId.toString())
+            : message.isInDialog(
+                currentUserId,
+                selectedChat.peerUserId,
+              ));
+
+    if (isInOpenChat) {
+      if (state.messages.any((m) => m.id == message.id)) {
+        return;
+      }
+      emit(state.copyWith(messages: [...state.messages, message]));
+      Logs().d('ChatBloc: добавлено новое сообщение в чат');
+      _loadPendingQueueForChat(selectedChat.id, emit);
+
+      return;
+    }
+
+    int? chatIdToIncrement;
+    if (message.isGroupChat) {
+      chatIdToIncrement = -message.peerGroupId;
+    } else {
+      final otherUserId = message.peerUserId == currentUserId
+          ? message.fromPeerUserId
+          : message.peerUserId;
+      chatIdToIncrement = otherUserId;
+    }
+
+    if (!state.chats.any((c) => c.id == chatIdToIncrement)) {
+      return;
+    }
+
+    final updatedChats = state.chats.map((c) {
+      if (c.id != chatIdToIncrement) {
+        return c;
+      }
+
+      return c.copyWith(unreadCount: c.unreadCount + 1);
+    }).toList();
+
+    emit(state.copyWith(chats: updatedChats));
+  }
+
   Future<void> _onDeleteMessage(
     ChatDeleteMessage event,
     Emitter<ChatState> emit,
@@ -846,6 +974,80 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         .map((m) => m.id)
         .toSet();
     emit(state.copyWith(selectedMessageIds: myIds));
+  }
+
+  void _onMessagesDeletedFromServer(
+    ChatMessagesDeletedFromServer event,
+    Emitter<ChatState> emit,
+  ) {
+    final selectedChat = state.selectedChat;
+    if (selectedChat == null) {
+      return;
+    }
+
+    final currentUserId = authBloc.state.user?.id ?? 0;
+    if (currentUserId == 0) {
+      return;
+    }
+
+    if (selectedChat.isGroup) {
+      return;
+    }
+
+    final otherUserId = selectedChat.peerUserId;
+
+    final isThisDialog =
+        (event.peerId == currentUserId && event.fromPeerId == otherUserId) ||
+        (event.peerId == otherUserId && event.fromPeerId == currentUserId);
+    if (!isThisDialog) {
+      return;
+    }
+
+    final idSet = event.messageIds.toSet();
+    final updatedMessages = state.messages
+        .where((m) => !idSet.contains(m.id))
+        .toList();
+    final updatedSelection = state.selectedMessageIds.difference(idSet);
+    emit(
+      state.copyWith(
+        messages: updatedMessages,
+        selectedMessageIds: updatedSelection,
+      ),
+    );
+    Logs().d('ChatBloc: удалены сообщения с сервера ids=$idSet');
+  }
+
+  void _onMessagesRead(ChatMessagesRead event, Emitter<ChatState> emit) {
+    final currentUserId = authBloc.state.user?.id ?? 0;
+    if (currentUserId == 0) {
+      return;
+    }
+
+    if (event.peerUserId != currentUserId) {
+      return;
+    }
+
+    final selectedChat = state.selectedChat;
+    if (selectedChat == null) {
+      return;
+    }
+
+    if (selectedChat.peerUserId != event.readerUserId) {
+      return;
+    }
+
+    final updatedMessages = state.messages.map((m) {
+      if (m.senderId == currentUserId &&
+          m.id <= event.lastReadMessageId &&
+          !m.isRead) {
+        return m.copyWith(isRead: true);
+      }
+
+      return m;
+    }).toList();
+
+    emit(state.copyWith(messages: updatedMessages));
+    Logs().d('ChatBloc: сообщения прочитаны до id=${event.lastReadMessageId}');
   }
 
   void _onUserTyping(ChatUserTyping event, Emitter<ChatState> emit) {
