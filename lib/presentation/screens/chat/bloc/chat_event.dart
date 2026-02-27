@@ -248,6 +248,24 @@ class ChatSelectAllMyMessages extends ChatEvent {
   const ChatSelectAllMyMessages();
 }
 
+class ChatUserTyping extends ChatEvent {
+  final int userId;
+
+  const ChatUserTyping(this.userId);
+
+  @override
+  List<Object?> get props => [userId];
+}
+
+class ChatClearTyping extends ChatEvent {
+  final int userId;
+
+  const ChatClearTyping(this.userId);
+
+  @override
+  List<Object?> get props => [userId];
+}
+
 class ChatSendTyping extends ChatEvent {
   const ChatSendTyping();
 }
@@ -277,6 +295,10 @@ class ChatInlineCallbackPressed extends ChatEvent {
 
   @override
   List<Object?> get props => [messageId, callbackData];
+}
+
+class ChatSyncRestored extends ChatEvent {
+  const ChatSyncRestored();
 }
 
 class ChatCancelPendingFromQueue extends ChatEvent {

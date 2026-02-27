@@ -76,6 +76,7 @@ class UserLocalDataSourceImpl implements UserLocalDataSource {
     } else {
       _user = null;
     }
+    await _db?.initSyncStateIfNeeded();
   }
 
   @override
@@ -116,6 +117,7 @@ class UserLocalDataSourceImpl implements UserLocalDataSource {
 
   @override
   Future<void> setSyncState(int pts, int date) async {
+    await _db?.setSyncState(pts, date);
     _prefs ??= await SharedPreferences.getInstance();
     await _prefs!.setInt(_syncPtsKey, pts);
     await _prefs!.setInt(_syncDateKey, date);
@@ -123,6 +125,14 @@ class UserLocalDataSourceImpl implements UserLocalDataSource {
 
   @override
   Future<Map<String, dynamic>> getSyncState() async {
+    final row = await _db?.getSyncStateRow();
+    if (row != null) {
+      return {
+        'pts': row.pts,
+        'date': row.date,
+      };
+    }
+
     _prefs ??= await SharedPreferences.getInstance();
     final pts = _prefs!.getInt(_syncPtsKey);
     final date = _prefs!.getInt(_syncDateKey);
@@ -134,6 +144,7 @@ class UserLocalDataSourceImpl implements UserLocalDataSource {
 
   @override
   Future<void> clearSyncState() async {
+    await _db?.resetSyncState();
     _prefs ??= await SharedPreferences.getInstance();
     await _prefs!.remove(_syncPtsKey);
     await _prefs!.remove(_syncDateKey);
@@ -142,7 +153,7 @@ class UserLocalDataSourceImpl implements UserLocalDataSource {
   @override
   Future<void> clearAuthData() async {
     clearTokens();
-    await _db?.clearPendingData();
+    await _db?.clearCache();
     _prefs ??= await SharedPreferences.getInstance();
     await _prefs!.clear();
   }

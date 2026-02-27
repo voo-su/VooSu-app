@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:get_it/get_it.dart';
 import 'package:voosu/core/auth_guard.dart';
 import 'package:voosu/data/db/app_database.dart';
@@ -13,6 +15,7 @@ import 'package:voosu/data/repositories/account_repository_impl.dart';
 import 'package:voosu/data/repositories/auth_repository_impl.dart';
 import 'package:voosu/data/repositories/user_chat_repository_impl.dart';
 import 'package:voosu/data/data_sources/local/chat_notification_settings_local_data_source.dart';
+import 'package:voosu/data/services/pts_sync_service.dart';
 import 'package:voosu/domain/repositories/account_repository.dart';
 import 'package:voosu/domain/repositories/auth_repository.dart';
 import 'package:voosu/domain/repositories/chat_repository.dart';
@@ -75,8 +78,30 @@ Future<void> init() async {
     () => GrpcChannelManager(sl<ServerConfig>(), sl<AuthInterceptor>()),
   );
 
+  sl.registerLazySingleton<StreamController<int>>(
+    () => StreamController<int>.broadcast(),
+  );
+
+  sl.registerLazySingleton<StreamController<Object?>>(
+    instanceName: 'syncRestored',
+    () => StreamController<Object?>.broadcast(),
+  );
+
   sl.registerLazySingleton<ChatNotificationSettingsLocalDataSource>(
     () => ChatNotificationSettingsLocalDataSourceImpl(),
+  );
+
+  sl.registerLazySingleton<PtsSyncService>(
+    () => PtsSyncService(
+      sl<IAccountRemoteDataSource>(),
+      sl<UserLocalDataSourceImpl>(),
+      sl<GetChatsUseCase>(),
+      getChatMessagesUseCase: sl<GetChatMessagesUseCase>(),
+      chatRepository: sl<ChatRepository>(),
+      cacheDb: sl<AppDatabase>(),
+      userTypingSink: sl<StreamController<int>>().sink,
+      syncRestoredSink: sl<StreamController<Object?>>(instanceName: 'syncRestored').sink,
+    ),
   );
 
   sl.registerLazySingleton<IAuthRemoteDataSource>(
@@ -143,6 +168,8 @@ Future<void> init() async {
       deleteChatUseCase: sl(),
       authBloc: sl<AuthBloc>(),
       chatNotificationSettings: sl<ChatNotificationSettingsLocalDataSource>(),
+      userTypingStream: sl<StreamController<int>>().stream,
+      syncRestoredStream: sl<StreamController<Object?>>(instanceName: 'syncRestored').stream,
       sendChatTypingUseCase: sl<SendChatTypingUseCase>(),
       setChatNotificationsUseCase: sl<SetChatNotificationsUseCase>(),
       reportInlineCallbackUseCase: sl<ReportInlineCallbackUseCase>(),
@@ -158,6 +185,7 @@ Future<void> init() async {
       logoutUseCase: sl(),
       tokenStorage: sl<UserLocalDataSourceImpl>(),
       authGuard: sl<AuthGuard>(),
+      ptsSyncService: sl<PtsSyncService>(),
       chatNotificationSettings: sl<ChatNotificationSettingsLocalDataSource>(),
     ),
   );

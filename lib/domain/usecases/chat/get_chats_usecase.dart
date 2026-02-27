@@ -7,4 +7,6 @@ class GetChatsUseCase {
   GetChatsUseCase(this.repo);
 
   Future<List<Chat>> call() => repo.getChats();
+
+  Future<List<Chat>> getCachedChats() => repo.getCachedChats();
 }

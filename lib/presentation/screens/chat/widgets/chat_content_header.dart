@@ -11,6 +11,7 @@ import 'package:voosu/presentation/screens/chat/group_info_screen.dart';
 import 'package:voosu/presentation/screens/chat/widgets/chat_delete_scope_dialog.dart';
 import 'package:voosu/presentation/screens/chat/widgets/chat_list_avatar.dart';
 import 'package:voosu/presentation/screens/chat/widgets/chat_list_item.dart';
+import 'package:voosu/presentation/screens/chat/widgets/typing_dots_indicator.dart';
 import 'package:voosu/core/layout/responsive.dart';
 
 class ChatContentHeader extends StatelessWidget {
@@ -123,6 +124,9 @@ class ChatContentHeader extends StatelessWidget {
     final chat = selectedChat!;
     final notificationSettings = context
         .read<ChatNotificationSettingsLocalDataSource>();
+    final isTyping =
+        chatState.typingUserId != null &&
+        chatState.typingUserId == chat.peerUserId;
     final title = ChatListItem.title(chat);
 
     final groupSubtitle = chat.isGroup
@@ -130,6 +134,7 @@ class ChatContentHeader extends StatelessWidget {
         : null;
     final subtitleColor =
         theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8);
+    final typingColor = theme.colorScheme.primary;
 
     return StreamBuilder<Set<int>>(
       stream: notificationSettings.mutedStream,
@@ -173,7 +178,27 @@ class ChatContentHeader extends StatelessWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
-                            if (groupSubtitle != null)
+                            if (isTyping)
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'печатает',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: typingColor,
+                                      fontSize: 13,
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  TypingDotsIndicator(
+                                    color: typingColor,
+                                    dotSize: 4,
+                                    spacing: 4,
+                                  ),
+                                ],
+                              )
+                            else if (groupSubtitle != null)
                               Text(
                                 groupSubtitle,
                                 style: theme.textTheme.bodySmall?.copyWith(

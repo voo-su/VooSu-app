@@ -13,6 +13,8 @@ abstract class ChatRepository {
 
   Future<List<Chat>> getChats();
 
+  Future<List<Chat>> getCachedChats();
+
   Future<GroupInfo> getGroupInfo(int groupId);
 
   Future<void> addGroupMembers(int groupId, List<int> userIds);
@@ -46,7 +48,19 @@ abstract class ChatRepository {
     required int limit,
   });
 
+  Future<List<Message>> getCachedMessagesForChat(
+    int chatId,
+    int limit, {
+    int? beforeMessageId,
+  });
+
+  Future<bool> hasOlderCachedMessages(int chatId, int oldestMessageId);
+
   Future<void> deleteMessages(List<int> messageIds, {bool forEveryone = true});
+
+  Future<void> deleteCachedMessages(List<int> messageIds);
+
+  Future<void> clearCachedMessagesForChat(int chatId);
 
   Future<void> clearHistory({int? peerUserId, int? peerGroupId});
 

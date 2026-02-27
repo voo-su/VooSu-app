@@ -43,6 +43,7 @@ class ChatRepositoryImpl implements ChatRepository {
   Future<List<Chat>> getChats() async {
     try {
       final chats = await _remote.getChats();
+      await _db?.cacheChats(chats);
 
       return chats;
     } catch (e) {
@@ -50,6 +51,44 @@ class ChatRepositoryImpl implements ChatRepository {
       Logs().e('ChatRepository: неожиданная ошибка в getChats', e);
       throw ApiFailure('Ошибка получения чатов');
     }
+  }
+
+  @override
+  Future<List<Chat>> getCachedChats() async {
+    if (_db == null) {
+      return [];
+    }
+
+    return _db.getCachedChats();
+  }
+
+  @override
+  Future<List<Message>> getCachedMessagesForChat(
+    int chatId,
+    int limit, {
+    int? beforeMessageId,
+  }) async {
+    if (_db == null) {
+      return [];
+    }
+
+    return _db.getCachedMessagesForChat(
+      chatId,
+      limit,
+      beforeMessageId: beforeMessageId,
+    );
+  }
+
+  @override
+  Future<bool> hasOlderCachedMessages(
+    int chatId,
+    int oldestMessageId,
+  ) async {
+    if (_db == null) {
+      return false;
+    }
+
+    return _db.hasOlderCachedMessages(chatId, oldestMessageId);
   }
 
   @override
@@ -162,6 +201,9 @@ class ChatRepositoryImpl implements ChatRepository {
         messageId: messageId,
         limit: limit,
       );
+      for (final m in messages) {
+        await _db?.cacheMessage(m);
+      }
 
       return messages;
     } catch (e) {
@@ -179,11 +221,26 @@ class ChatRepositoryImpl implements ChatRepository {
     if (messageIds.isEmpty) return;
     try {
       await _remote.deleteMessages(messageIds, forEveryone: forEveryone);
+      await _db?.deleteCachedMessages(messageIds);
     } catch (e) {
       if (e is Failure) rethrow;
       Logs().e('ChatRepository: неожиданная ошибка в deleteMessages', e);
       throw ApiFailure('Ошибка удаления сообщений');
     }
+  }
+
+  @override
+  Future<void> deleteCachedMessages(List<int> messageIds) async {
+    if (messageIds.isEmpty) {
+      return;
+    }
+
+    await _db?.deleteCachedMessages(messageIds);
+  }
+
+  @override
+  Future<void> clearCachedMessagesForChat(int chatId) async {
+    await _db?.clearCachedMessagesForChat(chatId);
   }
 
   @override
@@ -193,6 +250,10 @@ class ChatRepositoryImpl implements ChatRepository {
         peerUserId: peerUserId,
         peerGroupId: peerGroupId,
       );
+      final chatId = peerGroupId != null && peerGroupId > 0
+        ? -peerGroupId
+        : peerUserId!;
+      await _db?.clearCachedMessagesForChat(chatId);
     } catch (e) {
       if (e is Failure) rethrow;
       Logs().e('ChatRepository: неожиданная ошибка в clearHistory', e);
@@ -207,6 +268,10 @@ class ChatRepositoryImpl implements ChatRepository {
         peerUserId: peerUserId,
         peerGroupId: peerGroupId,
       );
+      final chatId = peerGroupId != null && peerGroupId > 0
+        ? -peerGroupId
+        : peerUserId!;
+      await _db?.deleteCachedChat(chatId);
     } catch (e) {
       if (e is Failure) rethrow;
       Logs().e('ChatRepository: неожиданная ошибка в deleteChat', e);

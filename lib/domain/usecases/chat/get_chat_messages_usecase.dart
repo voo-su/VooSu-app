@@ -17,4 +17,19 @@ class GetChatMessagesUseCase {
     messageId: messageId,
     limit: limit,
   );
+
+  Future<List<Message>> getCachedMessages(
+    int chatId,
+    int limit, {
+    int? beforeMessageId,
+  }) => repo.getCachedMessagesForChat(
+    chatId,
+    limit,
+    beforeMessageId: beforeMessageId,
+  );
+
+  Future<bool> hasOlderCachedMessages(
+    int chatId,
+    int oldestMessageId,
+  ) => repo.hasOlderCachedMessages(chatId, oldestMessageId);
 }

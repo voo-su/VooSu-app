@@ -48,6 +48,9 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   final ChatPollUseCase chatPollUseCase;
   final AuthBloc authBloc;
   final ChatNotificationSettingsLocalDataSource? chatNotificationSettings;
+  StreamSubscription<int>? _userTypingSubscription;
+  StreamSubscription<Object?>? _syncRestoredSubscription;
+  Timer? _typingClearTimer;
 
   ChatBloc({
     required this.getChatsUseCase,
@@ -67,6 +70,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     required this.chatPollUseCase,
     required this.authBloc,
     this.chatNotificationSettings,
+    Stream<int>? userTypingStream,
+    Stream<Object?>? syncRestoredStream,
   }) : super(const ChatState()) {
     on<ChatStarted>(_onStarted);
     on<ChatLoadChats>(_onLoadChats);
@@ -91,14 +96,37 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<ChatDeleteSelectedMessages>(_onDeleteSelectedMessages);
     on<ChatClearSelection>(_onClearSelection);
     on<ChatSelectAllMyMessages>(_onSelectAllMyMessages);
+    on<ChatUserTyping>(_onUserTyping);
+    on<ChatClearTyping>(_onClearTyping);
     on<ChatSendTyping>(_onSendTyping);
     on<ChatClearHistory>(_onClearHistory);
     on<ChatDeleteChat>(_onDeleteChat);
     on<ChatLoadMoreMessages>(_onLoadMoreMessages);
+    on<ChatSyncRestored>(_onSyncRestored);
     on<ChatCancelPendingFromQueue>(_onCancelPendingFromQueue);
     on<ChatInlineCallbackPressed>(_onInlineCallbackPressed);
     on<ChatVotePoll>(_onVotePoll);
     on<ChatCreatePoll>(_onCreatePoll);
+
+    if (userTypingStream != null) {
+      _userTypingSubscription = userTypingStream.listen((userId) {
+        add(ChatUserTyping(userId));
+      });
+    }
+
+    if (syncRestoredStream != null) {
+      _syncRestoredSubscription = syncRestoredStream.listen((_) {
+        add(const ChatSyncRestored());
+      });
+    }
+  }
+
+  @override
+  Future<void> close() {
+    _typingClearTimer?.cancel();
+    _syncRestoredSubscription?.cancel();
+    _userTypingSubscription?.cancel();
+    return super.close();
   }
 
   void _onBackToList(ChatBackToList event, Emitter<ChatState> emit) {
@@ -112,6 +140,12 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   }
 
   Future<void> _onStarted(ChatStarted event, Emitter<ChatState> emit) async {
+    try {
+      final cached = await getChatsUseCase.getCachedChats();
+      if (cached.isNotEmpty) {
+        emit(state.copyWith(chats: cached, isLoading: false));
+      }
+    } catch (_) {}
     await _loadChatsInternal(emit);
   }
 
@@ -142,7 +176,14 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       await _syncNotificationSettingsFromServer(chats);
     } catch (e) {
       Logs().e('ChatBloc: ошибка загрузки чатов', e);
-      final fallbackChats = state.chats;
+      List<Chat> fallbackChats = state.chats;
+      try {
+        final cached = await getChatsUseCase.getCachedChats();
+        if (cached.isNotEmpty) {
+          fallbackChats = cached;
+          Logs().d('ChatBloc: показаны кэшированные чаты (сервер недоступен)');
+        }
+      } catch (_) {}
       if (!silent) {
         emit(state.copyWith(
           isLoading: false,
@@ -217,10 +258,20 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         isLoading: true,
         error: null,
         clearSelection: true,
+        clearTypingUserId: true,
         clearReplyTo: true,
       ),
     );
 
+    try {
+      final cached = await getChatMessagesUseCase.getCachedMessages(
+        event.chat.id,
+        100,
+      );
+      if (cached.isNotEmpty) {
+        emit(state.copyWith(messages: cached, isLoading: false));
+      }
+    } catch (_) {}
     unawaited(_loadAndEmitMessagesForChat(event.chat));
   }
 
@@ -243,7 +294,11 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       pendingQueue = await getPendingForChatUseCase(chat.id);
     } catch (e) {
       Logs().e('ChatBloc: ошибка загрузки сообщений', e);
-      messages = state.messages;
+      try {
+        messages = await getChatMessagesUseCase.getCachedMessages(chat.id, 100);
+      } catch (_) {
+        messages = state.messages;
+      }
       updatedChats = state.chats;
     }
     add(ChatMessagesForChatLoaded(
@@ -262,7 +317,11 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       return;
     }
 
-    final merged = List<Message>.from(event.messages)
+    final loadedIds = event.messages.map((m) => m.id).toSet();
+    final fromStream = state.messages
+      .where((m) => !loadedIds.contains(m.id))
+      .toList();
+    final merged = [...event.messages, ...fromStream]
       ..sort((a, b) => a.id.compareTo(b.id));
     emit(
       state.copyWith(
@@ -298,7 +357,16 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       await _loadPendingQueueForChat(chat.id, emit);
     } catch (e) {
       Logs().e('ChatBloc: ошибка загрузки сообщений', e);
-      emit(state.copyWith(messages: state.messages, isLoading: false));
+      List<Message> fallbackMessages = state.messages;
+      if (fallbackMessages.isEmpty) {
+        try {
+          fallbackMessages = await getChatMessagesUseCase.getCachedMessages(
+            chat.id,
+            100,
+          );
+        } catch (_) {}
+      }
+      emit(state.copyWith(messages: fallbackMessages, isLoading: false));
       await _loadPendingQueueForChat(chat.id, emit);
     }
   }
@@ -780,6 +848,20 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     emit(state.copyWith(selectedMessageIds: myIds));
   }
 
+  void _onUserTyping(ChatUserTyping event, Emitter<ChatState> emit) {
+    _typingClearTimer?.cancel();
+    emit(state.copyWith(typingUserId: event.userId));
+    _typingClearTimer = Timer(const Duration(seconds: 5), () {
+      add(ChatClearTyping(event.userId));
+    });
+  }
+
+  void _onClearTyping(ChatClearTyping event, Emitter<ChatState> emit) {
+    if (state.typingUserId == event.userId) {
+      emit(state.copyWith(clearTypingUserId: true));
+    }
+  }
+
   void _onSendTyping(ChatSendTyping event, Emitter<ChatState> emit) {
     final chat = state.selectedChat;
     if (chat == null) {
@@ -869,6 +951,18 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     }
   }
 
+  Future<void> _onSyncRestored(
+    ChatSyncRestored event,
+    Emitter<ChatState> emit,
+  ) async {
+    final chat = state.selectedChat;
+    if (chat == null) {
+      return;
+    }
+    Logs().d('ChatBloc: соединение восстановлено, перезагрузка сообщений чата ${chat.id}');
+    await _loadMessagesForChat(chat, emit);
+  }
+
   Future<void> _onLoadMoreMessages(
     ChatLoadMoreMessages event,
     Emitter<ChatState> emit,
@@ -884,14 +978,27 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
     emit(state.copyWith(isLoadingMore: true));
     try {
+      final hasOlder = await getChatMessagesUseCase.hasOlderCachedMessages(
+        chat.id,
+        oldestId,
+      );
+      List<Message> older;
+      if (hasOlder) {
+        older = await getChatMessagesUseCase.getCachedMessages(
+          chat.id,
+          50,
+          beforeMessageId: oldestId,
+        );
+      } else {
       final peerUserId = chat.isGroup ? null : chat.peerUserId;
       final peerGroupId = chat.isGroup ? chat.peerGroupId : null;
-      final older = await getChatMessagesUseCase(
-        peerUserId: peerUserId,
-        peerGroupId: peerGroupId,
-        messageId: oldestId,
-        limit: 50,
-      );
+      older = await getChatMessagesUseCase(
+          peerUserId: peerUserId,
+          peerGroupId: peerGroupId,
+          messageId: oldestId,
+          limit: 50,
+        );
+      }
 
       if (older.isEmpty) {
         emit(state.copyWith(isLoadingMore: false));
