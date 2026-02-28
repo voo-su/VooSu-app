@@ -3,6 +3,7 @@ import 'package:voosu/core/theme/app_theme.dart';
 
 enum NavDestination {
   chat,
+  projects,
 }
 
 class SideNavigation extends StatelessWidget {
@@ -46,6 +47,15 @@ class SideNavigation extends StatelessWidget {
             tooltip: 'Чаты',
             onTap: () => onDestinationSelected(NavDestination.chat),
           ),
+          const SizedBox(height: 4),
+          _RailIcon(
+            icon: Icons.folder_outlined,
+            selectedIcon: Icons.folder,
+            isSelected: selected == NavDestination.projects,
+            tooltip: 'Проекты',
+            onTap: () => onDestinationSelected(NavDestination.projects),
+          ),
+          const Spacer(),
           _RailIcon(
             icon: Icons.logout_rounded,
             selectedIcon: Icons.logout_rounded,

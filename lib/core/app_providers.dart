@@ -6,7 +6,7 @@ import 'package:voosu/data/services/user_online_status_service.dart';
 import 'package:voosu/presentation/screens/auth/bloc/auth_bloc.dart';
 import 'package:voosu/presentation/screens/auth/bloc/auth_event.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_bloc.dart';
-import 'package:voosu/presentation/screens/projects/project_cubit.dart';
+import 'package:voosu/presentation/screens/projects/bloc/project_bloc.dart';
 import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
 
@@ -16,7 +16,7 @@ class AppProviders {
       create: (context) => di.sl<AuthBloc>()..add(const AuthCheckRequested()),
     ),
     BlocProvider<ChatBloc>(create: (context) => di.sl<ChatBloc>()),
-    BlocProvider<ProjectCubit>(create: (context) => di.sl<ProjectCubit>()),
+    BlocProvider<ProjectBloc>(create: (context) => di.sl<ProjectBloc>()),
   ];
 
   static List<SingleChildWidget> get allProviders => [

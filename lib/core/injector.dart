@@ -15,9 +15,11 @@ import 'package:voosu/data/data_sources/local/user_local_data_source.dart';
 import 'package:voosu/data/data_sources/remote/account_remote_datasource.dart';
 import 'package:voosu/data/data_sources/remote/auth_remote_datasource.dart';
 import 'package:voosu/data/data_sources/remote/chat_remote_datasource.dart';
+import 'package:voosu/data/data_sources/remote/project_remote_datasource.dart';
 import 'package:voosu/data/data_sources/remote/search_remote_datasource.dart';
 import 'package:voosu/data/repositories/account_repository_impl.dart';
 import 'package:voosu/data/repositories/auth_repository_impl.dart';
+import 'package:voosu/data/repositories/project_repository_impl.dart';
 import 'package:voosu/data/repositories/user_chat_repository_impl.dart';
 import 'package:voosu/data/data_sources/local/chat_notification_settings_local_data_source.dart';
 import 'package:voosu/data/services/notification_sound_service.dart';
@@ -25,10 +27,15 @@ import 'package:voosu/data/services/media_cache_service.dart';
 import 'package:voosu/data/services/pts_sync_service.dart';
 import 'package:voosu/domain/repositories/account_repository.dart';
 import 'package:voosu/domain/repositories/auth_repository.dart';
+import 'package:voosu/domain/repositories/project_repository.dart';
 import 'package:voosu/domain/repositories/chat_repository.dart';
 import 'package:voosu/domain/usecases/auth/email_auth_usecases.dart';
 import 'package:voosu/domain/usecases/auth/logout_usecase.dart';
 import 'package:voosu/domain/usecases/auth/refresh_token_usecase.dart';
+import 'package:voosu/domain/usecases/project/create_project_usecase.dart';
+import 'package:voosu/domain/usecases/project/get_project_usecase.dart';
+import 'package:voosu/domain/usecases/project/get_projects_usecase.dart';
+import 'package:voosu/domain/usecases/project/update_project_usecase.dart';
 import 'package:voosu/domain/usecases/chat/get_chats_usecase.dart';
 import 'package:voosu/domain/usecases/chat/create_chat_usecase.dart';
 import 'package:voosu/domain/usecases/chat/create_group_chat_usecase.dart';
@@ -48,7 +55,7 @@ import 'package:voosu/domain/usecases/chat/set_chat_notifications_usecase.dart';
 import 'package:voosu/domain/usecases/search/search_users_usecase.dart';
 import 'package:voosu/presentation/screens/auth/bloc/auth_bloc.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_bloc.dart';
-import 'package:voosu/presentation/screens/projects/project_cubit.dart';
+import 'package:voosu/presentation/screens/projects/bloc/project_bloc.dart';
 
 final sl = GetIt.instance;
 
@@ -171,17 +178,29 @@ Future<void> init() async {
     () => SearchRemoteDataSource(sl<GrpcChannelManager>(), sl<AuthGuard>()),
   );
 
+  sl.registerLazySingleton<IProjectRemoteDataSource>(
+    () => ProjectRemoteDataSource(sl<GrpcChannelManager>(), sl<AuthGuard>()),
+  );
+
   sl.registerLazySingleton<AuthRepository>(() => AuthRepositoryImpl(sl()));
   sl.registerLazySingleton<AccountRepository>(() => AccountRepositoryImpl(sl()));
   sl.registerLazySingleton<ChatRepository>(
     () => ChatRepositoryImpl(sl<IChatRemoteDataSource>(), sl<AppDatabase>()),
   );
+  sl.registerLazySingleton<ProjectRepository>(
+    () => ProjectRepositoryImpl(sl<IProjectRemoteDataSource>()),
+  );
+
   sl.registerFactory(() => RequestLoginCodeUseCase(sl()));
   sl.registerFactory(() => VerifyLoginUseCase(sl()));
   sl.registerFactory(() => RefreshTokenUseCase(sl()));
   sl.registerFactory(() => LogoutUseCase(sl()));
   sl.registerFactory(() => SearchUsersUseCase(sl<ISearchRemoteDataSource>()));
 
+  sl.registerFactory(() => CreateProjectUseCase(sl()));
+  sl.registerFactory(() => GetProjectsUseCase(sl()));
+  sl.registerFactory(() => GetProjectUseCase(sl()));
+  sl.registerFactory(() => UpdateProjectUseCase(sl()));
   sl.registerFactory(() => GetChatsUseCase(sl()));
   sl.registerFactory(() => CreateChatUseCase(sl()));
   sl.registerFactory(() => CreateGroupChatUseCase(sl()));
@@ -242,9 +261,11 @@ Future<void> init() async {
   );
 
   sl.registerFactory(
-    () => ProjectCubit(
-      sl<GrpcChannelManager>(),
-      sl<AuthGuard>(),
+    () => ProjectBloc(
+      getProjectsUseCase: sl(),
+      createProjectUseCase: sl(),
+      getProjectUseCase: sl(),
+      updateProjectUseCase: sl(),
     ),
   );
 

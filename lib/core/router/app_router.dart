@@ -4,8 +4,11 @@ import 'package:voosu/presentation/widgets/side_navigation.dart';
 
 abstract final class AppRoutes {
   static const String chat = 'chat';
+  static const String projects = 'projects';
+
   static const Set<String> _validTabs = {
     chat,
+    projects,
   };
 
   static NavDestination destinationFromPath(String path) {
@@ -14,6 +17,8 @@ abstract final class AppRoutes {
     switch (tab) {
       case chat:
         return NavDestination.chat;
+      case projects:
+        return NavDestination.projects;
       default:
         return NavDestination.chat;
     }
@@ -23,6 +28,8 @@ abstract final class AppRoutes {
     switch (d) {
       case NavDestination.chat:
         return '/$chat';
+      case NavDestination.projects:
+        return '/$projects';
     }
   }
 

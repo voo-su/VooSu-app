@@ -38,6 +38,13 @@ class AppBottomNav extends StatelessWidget {
                 isSelected: selected == NavDestination.chat,
                 onTap: () => onDestinationSelected(NavDestination.chat),
               ),
+              _NavItem(
+                icon: Icons.folder_outlined,
+                selectedIcon: Icons.folder,
+                label: 'Проекты',
+                isSelected: selected == NavDestination.projects,
+                onTap: () => onDestinationSelected(NavDestination.projects),
+              ),
               ...[if (trailing != null) trailing!],
             ],
           ),
