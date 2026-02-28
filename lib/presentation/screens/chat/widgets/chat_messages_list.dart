@@ -30,6 +30,7 @@ class ChatMessagesList extends StatelessWidget {
   final void Function(int messageId, int optionId)? onVotePoll;
   final Future<void> Function(int fileId, String filename)?
   onDownloadAttachment;
+  final Future<List<int>?> Function(int fileId)? onLoadAttachmentContent;
 
   const ChatMessagesList({
     super.key,
@@ -40,6 +41,7 @@ class ChatMessagesList extends StatelessWidget {
     this.onInlineButtonPressed,
     this.onVotePoll,
     this.onDownloadAttachment,
+    this.onLoadAttachmentContent,
   });
 
   @override
@@ -126,6 +128,7 @@ class ChatMessagesList extends StatelessWidget {
               onInlineButtonPressed: onInlineButtonPressed,
               onVotePoll: onVotePoll,
               onDownloadAttachment: onDownloadAttachment,
+              onLoadAttachmentContent: onLoadAttachmentContent,
               onDelete: () async {
                 final forEveryone = await showDeleteScopeDialog(
                   context,

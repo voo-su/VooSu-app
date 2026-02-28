@@ -599,6 +599,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                         final f = _selectedFiles[i];
                         return _AttachmentPreviewTile(
                           name: f.name,
+                          bytes: f.bytes,
                           fileSize: f.size,
                           onRemove: () => _removeFile(i),
                         );
@@ -886,11 +887,13 @@ class _ChatInputBarState extends State<ChatInputBar> {
 
 class _AttachmentPreviewTile extends StatelessWidget {
   final String name;
+  final List<int>? bytes;
   final int fileSize;
   final VoidCallback onRemove;
 
   const _AttachmentPreviewTile({
     required this.name,
+    required this.bytes,
     required this.fileSize,
     required this.onRemove,
   });
@@ -898,12 +901,33 @@ class _AttachmentPreviewTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    const size = 56.0;
+    final isImage =
+        bytes != null &&
+        bytes!.isNotEmpty &&
+        (AttachmentType.isImageFilename(name) ||
+            AttachmentType.isImageBytes(bytes!));
+    final size = 56.0;
+
+    Widget content;
+    if (isImage) {
+      content = ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.memory(
+          Uint8List.fromList(bytes!),
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (_, e, st) => _iconContent(theme, size),
+        ),
+      );
+    } else {
+      content = _iconContent(theme, size);
+    }
 
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        SizedBox(width: size, height: size, child: _iconContent(theme, size)),
+        SizedBox(width: size, height: size, child: content),
         Positioned(
           top: -6,
           right: -6,
@@ -921,37 +945,38 @@ class _AttachmentPreviewTile extends StatelessWidget {
             ),
           ),
         ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-            decoration: BoxDecoration(
-              color: Colors.black54,
-              borderRadius: const BorderRadius.vertical(
-                bottom: Radius.circular(8),
+        if (!isImage)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: const BorderRadius.vertical(
+                  bottom: Radius.circular(8),
+                ),
+              ),
+              child: Text(
+                fileSize > 0 ? '$name (${(fileSize / 1024).ceil()} КБ)' : name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Colors.white, fontSize: 10),
               ),
             ),
-            child: Text(
-              fileSize > 0 ? '$name (${(fileSize / 1024).ceil()} КБ)' : name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Colors.white, fontSize: 10),
-            ),
           ),
-        ),
       ],
     );
   }
 
   Widget _iconContent(ThemeData theme, double size) {
     IconData icon = Icons.insert_drive_file_rounded;
-    if (AttachmentType.isImageFilename(name)) {
-      icon = Icons.image_outlined;
-    } else if (AttachmentType.isVideoFilename(name)) {
+    if (AttachmentType.isVideoFilename(name)) {
       icon = Icons.videocam_rounded;
-    } else if (AttachmentType.isAudioFilename(name)) {
+    }
+
+    if (AttachmentType.isAudioFilename(name)) {
       icon = Icons.audiotrack_rounded;
     }
 

@@ -10,7 +10,7 @@ import 'package:voosu/domain/entities/user.dart';
 import 'package:voosu/core/injector.dart' as di;
 import 'package:voosu/core/file_stream.dart';
 import 'package:voosu/domain/entities/attachment_upload.dart';
-import 'package:voosu/domain/repositories/account_repository.dart';
+import 'package:voosu/data/services/media_cache_service.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_bloc.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_event.dart';
 import 'package:voosu/presentation/screens/auth/bloc/auth_bloc.dart';
@@ -172,7 +172,7 @@ class _UserChatScreenState extends State<UserChatScreen> {
       ),
     );
     try {
-      final bytes = await di.sl<AccountRepository>().getFile(fileId);
+      final bytes = await di.sl<MediaCacheService>().getFile(fileId);
       if (!mounted) {
         return;
       }
@@ -192,6 +192,14 @@ class _UserChatScreenState extends State<UserChatScreen> {
           const SnackBar(content: Text('Не удалось загрузить вложение')),
         );
       }
+    }
+  }
+
+  Future<List<int>?> _onLoadAttachmentContent(int fileId) async {
+    try {
+      return await di.sl<MediaCacheService>().getFile(fileId);
+    } catch (_) {
+      return null;
     }
   }
 
@@ -358,6 +366,7 @@ class _UserChatScreenState extends State<UserChatScreen> {
                       onInlineButtonPressed: _onInlineButtonPressed,
                       onVotePoll: _onVotePoll,
                       onDownloadAttachment: _onDownloadAttachment,
+                      onLoadAttachmentContent: _onLoadAttachmentContent,
                     ),
                   ),
                   if (!state.isSelectionMode)
@@ -440,6 +449,7 @@ class _UserChatScreenState extends State<UserChatScreen> {
                           onInlineButtonPressed: _onInlineButtonPressed,
                           onVotePoll: _onVotePoll,
                           onDownloadAttachment: _onDownloadAttachment,
+                          onLoadAttachmentContent: _onLoadAttachmentContent,
                         ),
                       ),
                       if (selectedChat != null && !state.isSelectionMode)

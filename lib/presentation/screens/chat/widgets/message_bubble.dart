@@ -50,6 +50,7 @@ class MessageBubble extends StatelessWidget {
   final VoidCallback? onForward;
   final Future<void> Function(int fileId, String filename)?
   onDownloadAttachment;
+  final Future<List<int>?> Function(int fileId)? onLoadAttachmentContent;
   final bool isSelectionMode;
   final bool isSelected;
   final VoidCallback? onToggleSelection;
@@ -67,6 +68,7 @@ class MessageBubble extends StatelessWidget {
     this.onReply,
     this.onForward,
     this.onDownloadAttachment,
+    this.onLoadAttachmentContent,
     this.isSelectionMode = false,
     this.isSelected = false,
     this.onToggleSelection,
@@ -425,6 +427,7 @@ class MessageBubble extends StatelessWidget {
                                       return _AttachmentPreviewTile(
                                         attachment: att,
                                         textColor: textColor,
+                                        onLoadContent: onLoadAttachmentContent,
                                         typeLabel: _attachmentTypeLabel(att),
                                       );
                                     }).toList(),
@@ -440,6 +443,9 @@ class MessageBubble extends StatelessWidget {
                         ...message.attachments.map(
                           (att) => ChatAttachmentView(
                             attachment: att,
+                            onLoadContent: onLoadAttachmentContent != null
+                              ? (fileId) => onLoadAttachmentContent!(fileId)
+                              : (_) async => null,
                             onDownload: onDownloadAttachment,
                             textColor: textColor,
                           ),
@@ -520,54 +526,63 @@ class MessageBubble extends StatelessWidget {
   }
 }
 
-class _AttachmentPreviewTile extends StatelessWidget {
+class _AttachmentPreviewTile extends StatefulWidget {
   final ChatAttachment attachment;
   final Color textColor;
+  final Future<List<int>?> Function(int fileId)? onLoadContent;
   final String? typeLabel;
 
   const _AttachmentPreviewTile({
     required this.attachment,
     required this.textColor,
+    this.onLoadContent,
     this.typeLabel,
   });
 
+  @override
+  State<_AttachmentPreviewTile> createState() => _AttachmentPreviewTileState();
+}
+
+class _AttachmentPreviewTileState extends State<_AttachmentPreviewTile> {
+  List<int>? _bytes;
+
   static const double _size = 52;
 
-  IconData get _icon {
-    switch (attachment.type) {
-      case AttachmentType.image:
-        return Icons.image_outlined;
-      case AttachmentType.video:
-        return Icons.videocam_rounded;
-      case AttachmentType.audio:
-        return Icons.audiotrack_rounded;
-      case AttachmentType.document:
-      case AttachmentType.unknown:
-      default:
-        return Icons.attach_file_rounded;
+  @override
+  void initState() {
+    super.initState();
+    if (widget.onLoadContent != null &&  widget.attachment.type == AttachmentType.image) {
+      widget.onLoadContent!(widget.attachment.fileId).then((bytes) {
+        if (mounted) {
+          setState(() {
+            _bytes = bytes;
+          });
+        }
+      });
+    } else {
+      setState(() {});
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final tile = Tooltip(
-      message: attachment.filename,
-      child: Container(
-        width: _size,
-        height: _size,
-        decoration: BoxDecoration(
-          color: textColor.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Icon(
-          _icon,
-          size: 24,
-          color: textColor.withValues(alpha: 0.8),
-        ),
-      ),
-    );
+    final isImage = widget.attachment.type == AttachmentType.image;
+    final showThumbnail = isImage && _bytes != null && _bytes!.isNotEmpty;
 
-    if (typeLabel == null || typeLabel!.isEmpty) {
+    final tile = showThumbnail
+        ? ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: Image.memory(
+              Uint8List.fromList(_bytes!),
+              fit: BoxFit.cover,
+              width: _size,
+              height: _size,
+              errorBuilder: (_, _, _) => _buildIconTile(),
+            ),
+          )
+        : _buildIconTile();
+
+    if (widget.typeLabel == null || widget.typeLabel!.isEmpty) {
       return tile;
     }
 
@@ -578,15 +593,46 @@ class _AttachmentPreviewTile extends StatelessWidget {
         tile,
         const SizedBox(height: 4),
         Text(
-          typeLabel!,
+          widget.typeLabel!,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: textColor.withValues(alpha: 0.85),
+            color: widget.textColor.withValues(alpha: 0.85),
             fontSize: 11,
           ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
       ],
+    );
+  }
+
+  Widget _buildIconTile() {
+    IconData icon;
+    switch (widget.attachment.type) {
+      case AttachmentType.video:
+        icon = Icons.videocam_rounded;
+        break;
+      case AttachmentType.audio:
+        icon = Icons.audiotrack_rounded;
+        break;
+      default:
+        icon = Icons.attach_file_rounded;
+    }
+
+    return Tooltip(
+      message: widget.attachment.filename,
+      child: Container(
+        width: _size,
+        height: _size,
+        decoration: BoxDecoration(
+          color: widget.textColor.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Icon(
+          icon,
+          size: 24,
+          color: widget.textColor.withValues(alpha: 0.8),
+        ),
+      ),
     );
   }
 }

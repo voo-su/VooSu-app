@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
+import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 import 'package:voosu/core/app_providers.dart';
 import 'package:voosu/core/injector.dart' as di;
 import 'package:voosu/core/log/logs.dart';
@@ -10,8 +11,12 @@ import 'package:voosu/core/theme/app_theme.dart';
 import 'package:voosu/presentation/screens/auth/bloc/auth_bloc.dart';
 import 'package:voosu/presentation/screens/auth/bloc/auth_state.dart';
 import 'package:voosu/presentation/screens/auth/login_screen.dart';
+import 'package:media_kit/media_kit.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  MediaKit.ensureInitialized();
+  JustAudioMediaKit.ensureInitialized();
   Logs().i('Запуск приложения');
   await di.init();
   Logs().i('Инициализация завершена');

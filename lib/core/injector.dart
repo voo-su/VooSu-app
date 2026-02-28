@@ -21,6 +21,7 @@ import 'package:voosu/data/repositories/auth_repository_impl.dart';
 import 'package:voosu/data/repositories/user_chat_repository_impl.dart';
 import 'package:voosu/data/data_sources/local/chat_notification_settings_local_data_source.dart';
 import 'package:voosu/data/services/notification_sound_service.dart';
+import 'package:voosu/data/services/media_cache_service.dart';
 import 'package:voosu/data/services/pts_sync_service.dart';
 import 'package:voosu/domain/repositories/account_repository.dart';
 import 'package:voosu/domain/repositories/auth_repository.dart';
@@ -119,6 +120,10 @@ Future<void> init() async {
 
   sl.registerLazySingleton<NotificationSoundService>(
     () => NotificationSoundService(),
+  );
+
+  sl.registerLazySingleton<MediaCacheService>(
+    () => MediaCacheService(sl<AccountRepository>()),
   );
 
   sl.registerLazySingleton<ChatNotificationSettingsLocalDataSource>(
