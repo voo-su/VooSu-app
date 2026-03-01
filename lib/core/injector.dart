@@ -32,10 +32,14 @@ import 'package:voosu/domain/repositories/chat_repository.dart';
 import 'package:voosu/domain/usecases/auth/email_auth_usecases.dart';
 import 'package:voosu/domain/usecases/auth/logout_usecase.dart';
 import 'package:voosu/domain/usecases/auth/refresh_token_usecase.dart';
+import 'package:voosu/domain/usecases/project/add_user_to_project_usecase.dart';
 import 'package:voosu/domain/usecases/project/create_project_usecase.dart';
+import 'package:voosu/domain/usecases/project/get_project_members_usecase.dart';
 import 'package:voosu/domain/usecases/project/get_project_usecase.dart';
 import 'package:voosu/domain/usecases/project/get_projects_usecase.dart';
+import 'package:voosu/domain/usecases/project/remove_user_from_project_usecase.dart';
 import 'package:voosu/domain/usecases/project/update_project_usecase.dart';
+import 'package:voosu/domain/usecases/project/get_project_history_usecase.dart';
 import 'package:voosu/domain/usecases/chat/get_chats_usecase.dart';
 import 'package:voosu/domain/usecases/chat/create_chat_usecase.dart';
 import 'package:voosu/domain/usecases/chat/create_group_chat_usecase.dart';
@@ -200,7 +204,11 @@ Future<void> init() async {
   sl.registerFactory(() => CreateProjectUseCase(sl()));
   sl.registerFactory(() => GetProjectsUseCase(sl()));
   sl.registerFactory(() => GetProjectUseCase(sl()));
+  sl.registerFactory(() => AddUserToProjectUseCase(sl()));
+  sl.registerFactory(() => GetProjectMembersUseCase(sl()));
   sl.registerFactory(() => UpdateProjectUseCase(sl()));
+  sl.registerFactory(() => RemoveUserFromProjectUseCase(sl()));
+  sl.registerFactory(() => GetProjectHistoryUseCase(sl()));
   sl.registerFactory(() => GetChatsUseCase(sl()));
   sl.registerFactory(() => CreateChatUseCase(sl()));
   sl.registerFactory(() => CreateGroupChatUseCase(sl()));
@@ -265,7 +273,10 @@ Future<void> init() async {
       getProjectsUseCase: sl(),
       createProjectUseCase: sl(),
       getProjectUseCase: sl(),
+      getProjectMembersUseCase: sl(),
+      addUserToProjectUseCase: sl(),
       updateProjectUseCase: sl(),
+      removeUserFromProjectUseCase: sl(),
     ),
   );
 

@@ -7,6 +7,8 @@ import 'package:voosu/core/grpc_error_handler.dart';
 import 'package:voosu/core/log/logs.dart';
 import 'package:voosu/data/mappers/project_mapper.dart';
 import 'package:voosu/domain/entities/project.dart';
+import 'package:voosu/domain/entities/project_activity.dart';
+import 'package:voosu/domain/entities/project_member_item.dart';
 import 'package:voosu/generated/grpc_pb/project.pbgrpc.dart' as projectpb;
 
 abstract class IProjectRemoteDataSource {
@@ -17,6 +19,14 @@ abstract class IProjectRemoteDataSource {
   Future<Project> getProject(int id);
 
   Future<void> updateProject(int projectId, String name);
+
+  Future<void> addUserToProject(int projectId, List<int> userIds);
+
+  Future<void> removeUserFromProject(int projectId, int userId);
+
+  Future<List<ProjectMemberItem>> getProjectMembers(int projectId);
+
+  Future<List<ProjectActivity>> getProjectHistory(int projectId);
 }
 
 class ProjectRemoteDataSource implements IProjectRemoteDataSource {
@@ -93,6 +103,86 @@ class ProjectRemoteDataSource implements IProjectRemoteDataSource {
     } catch (e) {
       Logs().e('ProjectRemoteDataSource: ошибка в updateProject', e);
       throw ApiFailure('Ошибка переименования проекта');
+    }
+  }
+
+  @override
+  Future<void> addUserToProject(int projectId, List<int> userIds) async {
+    Logs().d('ProjectRemoteDataSource: addUserToProject projectId=$projectId');
+    try {
+      final req = projectpb.AddUserToProjectRequest(
+        projectId: Int64(projectId),
+        userIds: userIds.map((id) => Int64(id)).toList(),
+      );
+      await _authGuard.execute(() => _client.addUserToProject(req));
+    } on GrpcError catch (e) {
+      Logs().e('ProjectRemoteDataSource: ошибка gRPC в addUserToProject', e);
+      throwGrpcError(e, 'Ошибка добавления участников');
+    } catch (e) {
+      Logs().e('ProjectRemoteDataSource: ошибка в addUserToProject', e);
+      throw ApiFailure('Ошибка добавления участников');
+    }
+  }
+
+  @override
+  Future<void> removeUserFromProject(int projectId, int userId) async {
+    Logs().d('ProjectRemoteDataSource: removeUserFromProject projectId=$projectId');
+    try {
+      final req = projectpb.RemoveUserFromProjectRequest(
+        projectId: Int64(projectId),
+        userId: Int64(userId),
+      );
+      await _authGuard.execute(() => _client.removeUserFromProject(req));
+    } on GrpcError catch (e) {
+      Logs().e('ProjectRemoteDataSource: ошибка gRPC в removeUserFromProject', e);
+      throwGrpcError(e, 'Ошибка удаления участника');
+    } catch (e) {
+      Logs().e('ProjectRemoteDataSource: ошибка в removeUserFromProject', e);
+      throw ApiFailure('Ошибка удаления участника');
+    }
+  }
+
+  @override
+  Future<List<ProjectMemberItem>> getProjectMembers(int projectId) async {
+    Logs().d('ProjectRemoteDataSource: getProjectMembers projectId=$projectId');
+    try {
+      final req = projectpb.GetProjectMembersRequest(projectId: Int64(projectId));
+      final resp = await _authGuard.execute(
+        () => _client.getProjectMembers(req),
+      );
+
+      return ProjectMapper.memberListFromProto(resp.items);
+    } on GrpcError catch (e) {
+      Logs().e('ProjectRemoteDataSource: ошибка gRPC в getProjectMembers', e);
+      throwGrpcError(e, 'Ошибка получения участников');
+    } catch (e) {
+      Logs().e('ProjectRemoteDataSource: ошибка в getProjectMembers', e);
+      throw ApiFailure('Ошибка получения участников');
+    }
+  }
+
+  @override
+  Future<List<ProjectActivity>> getProjectHistory(int projectId) async {
+    Logs().d('ProjectRemoteDataSource: getProjectHistory projectId=$projectId');
+    try {
+      final req = projectpb.GetProjectHistoryRequest(projectId: Int64(projectId));
+      final resp = await _authGuard.execute(() => _client.getProjectHistory(req));
+      return resp.items.map((a) => ProjectActivity(
+        id: a.id.toInt(),
+        projectId: a.projectId.toInt(),
+        taskId: a.taskId.toInt(),
+        userId: a.userId.toInt(),
+        action: a.action,
+        payload: a.payload,
+        createdAt: a.createdAt.toInt(),
+      ))
+      .toList();
+    } on GrpcError catch (e) {
+      Logs().e('ProjectRemoteDataSource: ошибка gRPC в getProjectHistory', e);
+      throwGrpcError(e, 'Ошибка загрузки истории');
+    } catch (e) {
+      Logs().e('ProjectRemoteDataSource: ошибка в getProjectHistory', e);
+      throw ApiFailure('Ошибка загрузки истории');
     }
   }
 }

@@ -30,6 +30,25 @@ class ProjectSelected extends ProjectEvent {
   List<Object?> get props => [project];
 }
 
+class ProjectMembersLoadRequested extends ProjectEvent {
+  final int projectId;
+
+  const ProjectMembersLoadRequested(this.projectId);
+
+  @override
+  List<Object?> get props => [projectId];
+}
+
+class ProjectAddMembersRequested extends ProjectEvent {
+  final int projectId;
+  final List<int> userIds;
+
+  const ProjectAddMembersRequested(this.projectId, this.userIds);
+
+  @override
+  List<Object?> get props => [projectId, userIds];
+}
+
 class ProjectUpdateNameRequested extends ProjectEvent {
   final int projectId;
   final String name;
@@ -38,6 +57,16 @@ class ProjectUpdateNameRequested extends ProjectEvent {
 
   @override
   List<Object?> get props => [projectId, name];
+}
+
+class ProjectRemoveMemberRequested extends ProjectEvent {
+  final int projectId;
+  final int userId;
+
+  const ProjectRemoveMemberRequested(this.projectId, this.userId);
+
+  @override
+  List<Object?> get props => [projectId, userId];
 }
 
 class ProjectClearSelection extends ProjectEvent {

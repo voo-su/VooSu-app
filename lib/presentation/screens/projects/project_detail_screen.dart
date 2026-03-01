@@ -4,6 +4,8 @@ import 'package:voosu/domain/entities/project.dart';
 import 'package:voosu/presentation/screens/projects/bloc/project_bloc.dart';
 import 'package:voosu/presentation/screens/projects/bloc/project_event.dart';
 import 'package:voosu/presentation/screens/projects/bloc/project_state.dart';
+import 'package:voosu/presentation/screens/projects/project_history_dialog.dart';
+import 'package:voosu/presentation/screens/projects/project_members_dialog.dart';
 
 class ProjectDetailScreen extends StatefulWidget {
   final Project project;
@@ -21,6 +23,14 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ProjectBloc>().add(ProjectSelected(widget.project));
     });
+  }
+
+  void _openMembers() {
+    ProjectMembersDialog.show(context, project: widget.project);
+  }
+
+  void _openHistory() {
+    ProjectHistoryDialog.show(context, projectId: widget.project.id);
   }
 
   void _openEditName() {
@@ -85,6 +95,16 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
               overflow: TextOverflow.ellipsis,
             ),
             actions: [
+              IconButton(
+                icon: const Icon(Icons.history),
+                tooltip: 'История',
+                onPressed: _openHistory,
+              ),
+              IconButton(
+                icon: const Icon(Icons.people),
+                tooltip: 'Участники проекта',
+                onPressed: _openMembers,
+              ),
               if (project.isCurrentUserAdmin)
                 IconButton(
                   icon: const Icon(Icons.edit, size: 20),
@@ -114,7 +134,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Проект',
+                    'Участники и история — кнопки на панели сверху.',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyLarge?.copyWith(color: muted),
                   ),

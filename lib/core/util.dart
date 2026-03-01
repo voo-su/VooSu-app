@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:voosu/domain/entities/user.dart';
 
 String participantsSubtitle(int count, {String? emptyLabel}) {
   if (count <= 0) {
@@ -14,6 +15,21 @@ String participantsSubtitle(int count, {String? emptyLabel}) {
   }
 
   return '$count участников';
+}
+
+String userDisplayNameForId(List<User>? members, int userId) {
+  if (members == null) {
+    return 'ID: $userId';
+  }
+
+  try {
+    final user = members.firstWhere((u) => u.id == userId);
+    return user.username.isNotEmpty || user.name.isNotEmpty || user.surname.isNotEmpty
+      ? user.displayName
+      : 'ID: $userId';
+  } catch (_) {
+    return 'ID: $userId';
+  }
 }
 
 bool isBlank(String? value) => value == null || value.isEmpty;
