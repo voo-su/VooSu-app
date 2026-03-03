@@ -13,6 +13,9 @@ import 'package:voosu/domain/entities/message.dart';
 import 'package:voosu/domain/entities/message_deleted_payload.dart';
 import 'package:voosu/domain/entities/message_read_payload.dart';
 import 'package:voosu/domain/entities/attachment_upload.dart';
+import 'package:voosu/data/mappers/task_mapper.dart';
+import 'package:voosu/domain/entities/task.dart';
+import 'package:voosu/domain/entities/task_update_payload.dart';
 import 'package:voosu/domain/repositories/chat_repository.dart';
 import 'package:voosu/domain/usecases/chat/get_chat_messages_usecase.dart';
 import 'package:voosu/domain/usecases/chat/get_chats_usecase.dart';
@@ -50,6 +53,7 @@ class PtsSyncService {
   final StreamSink<MessageDeletedPayload>? _messageDeletedSink;
   final StreamSink<MessageReadPayload>? _messageReadSink;
   final StreamSink<int>? _userTypingSink;
+  final StreamSink<TaskUpdatePayload>? _taskUpdateSink;
   final StreamSink<Object?>? _chatListRefreshSink;
   final StreamSink<Object?>? _syncRestoredSink;
 
@@ -74,6 +78,7 @@ class PtsSyncService {
     StreamSink<MessageDeletedPayload>? messageDeletedSink,
     StreamSink<MessageReadPayload>? messageReadSink,
     StreamSink<int>? userTypingSink,
+    StreamSink<TaskUpdatePayload>? taskUpdateSink,
     StreamSink<Object?>? chatListRefreshSink,
     StreamSink<Object?>? syncRestoredSink,
   })  : _getChatMessagesUseCase = getChatMessagesUseCase,
@@ -85,6 +90,7 @@ class PtsSyncService {
         _messageDeletedSink = messageDeletedSink,
         _messageReadSink = messageReadSink,
         _userTypingSink = userTypingSink,
+        _taskUpdateSink = taskUpdateSink,
         _chatListRefreshSink = chatListRefreshSink,
         _syncRestoredSink = syncRestoredSink;
 
@@ -415,6 +421,14 @@ class PtsSyncService {
         await _processNewMessage(update.newMessage);
       }
 
+      if (update.hasNewTask()) {
+        await _processNewTask(update.newTask);
+      }
+
+      if (update.hasTaskChanged()) {
+        await _processTaskChanged(update.taskChanged);
+      }
+
       if (update.hasMessageDeleted()) {
         await _processMessageDeleted(update.messageDeleted);
       }
@@ -428,6 +442,42 @@ class PtsSyncService {
       }
     } catch (e, stackTrace) {
       Logs().e('Ошибка обработки обновления', e, stackTrace);
+    }
+  }
+
+  Future<void> _processNewTask(account_pb.UpdateNewTask update) async {
+    try {
+      if (update.projectId == 0) return;
+      final projectId = update.projectId.toInt();
+      Task? task;
+      if (update.hasTask()) {
+        task = TaskMapper.fromProto(update.task, projectId: projectId);
+      }
+      _taskUpdateSink?.add(TaskUpdatePayload(
+        projectId: projectId,
+        task: task,
+      ));
+      Logs().d('PtsSyncService: новая задача в проекте $projectId');
+    } catch (e, stackTrace) {
+      Logs().e('Ошибка обработки новой задачи', e, stackTrace);
+    }
+  }
+
+  Future<void> _processTaskChanged(account_pb.UpdateTaskChanged update) async {
+    try {
+      if (update.projectId == 0) return;
+      final projectId = update.projectId.toInt();
+      Task? task;
+      if (update.hasTask()) {
+        task = TaskMapper.fromProto(update.task, projectId: projectId);
+      }
+      _taskUpdateSink?.add(TaskUpdatePayload(
+        projectId: projectId,
+        task: task,
+      ));
+      Logs().d('PtsSyncService: изменение задачи в проекте $projectId');
+    } catch (e, stackTrace) {
+      Logs().e('Ошибка обработки изменения задачи', e, stackTrace);
     }
   }
 

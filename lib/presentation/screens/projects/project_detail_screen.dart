@@ -1,11 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:voosu/core/injector.dart';
 import 'package:voosu/domain/entities/project.dart';
+import 'package:voosu/presentation/screens/auth/bloc/auth_bloc.dart';
 import 'package:voosu/presentation/screens/projects/bloc/project_bloc.dart';
 import 'package:voosu/presentation/screens/projects/bloc/project_event.dart';
 import 'package:voosu/presentation/screens/projects/bloc/project_state.dart';
 import 'package:voosu/presentation/screens/projects/project_history_dialog.dart';
 import 'package:voosu/presentation/screens/projects/project_members_dialog.dart';
+import 'package:voosu/presentation/screens/tasks/bloc/task_bloc.dart';
+import 'package:voosu/presentation/screens/tasks/bloc/task_event.dart';
+import 'package:voosu/presentation/screens/tasks/tasks_screen.dart';
+import 'package:voosu/presentation/screens/tasks/widgets/columns_manage_dialog.dart';
+import 'package:voosu/presentation/screens/tasks/widgets/labels_manage_dialog.dart';
+import 'package:voosu/presentation/screens/tasks/widgets/task_create_dialog.dart';
 
 class ProjectDetailScreen extends StatefulWidget {
   final Project project;
@@ -17,12 +25,67 @@ class ProjectDetailScreen extends StatefulWidget {
 }
 
 class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
+  void Function()? _refreshColumns;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ProjectBloc>().add(ProjectSelected(widget.project));
     });
+  }
+
+  void _onRegisterRefresh(void Function()? refresh) {
+    _refreshColumns = refresh;
+  }
+
+  void _openColumns() {
+    ColumnsManageDialog.show(
+      context,
+      projectId: widget.project.id,
+      onClosed: () => _refreshColumns?.call(),
+    );
+  }
+
+  void _openLabels() {
+    LabelsManageDialog.show(
+      context,
+      projectId: widget.project.id,
+    );
+  }
+
+  void _openCreateTask(BuildContext contextWithTaskBloc) {
+    final taskBloc = contextWithTaskBloc.read<TaskBloc>();
+    ProjectBloc? projectBloc;
+    int? currentUserId;
+    try {
+      projectBloc = context.read<ProjectBloc>();
+    } catch (_) {}
+    try {
+      currentUserId = context.read<AuthBloc>().state.user?.id;
+    } catch (_) {}
+    showDialog<void>(
+      context: contextWithTaskBloc,
+      builder: (ctx) {
+        Widget dialog = BlocProvider.value(
+          value: taskBloc,
+          child: TaskCreateDialog(
+            projectId: widget.project.id,
+            onCreated: () {
+              contextWithTaskBloc.read<TaskBloc>().add(
+                TasksLoadRequested(widget.project.id),
+              );
+            },
+            initialExecutorUserId: currentUserId,
+          ),
+        );
+        if (projectBloc != null) {
+          dialog = BlocProvider.value(value: projectBloc, child: dialog);
+        }
+
+        return dialog;
+      },
+    );
   }
 
   void _openMembers() {
@@ -74,76 +137,79 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<ProjectBloc, ProjectState>(
-      buildWhen: (a, b) => a.selectedProject != b.selectedProject,
-      builder: (context, projectState) {
-        final project =
-            projectState.selectedProject?.id == widget.project.id
-            ? projectState.selectedProject!
-            : widget.project;
-        final theme = Theme.of(context);
-        final muted = theme.colorScheme.onSurfaceVariant;
-
-        return Scaffold(
-          appBar: AppBar(
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-            title: Text(
-              project.name,
-              overflow: TextOverflow.ellipsis,
-            ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.history),
-                tooltip: 'История',
-                onPressed: _openHistory,
-              ),
-              IconButton(
-                icon: const Icon(Icons.people),
-                tooltip: 'Участники проекта',
-                onPressed: _openMembers,
-              ),
-              if (project.isCurrentUserAdmin)
-                IconButton(
-                  icon: const Icon(Icons.edit, size: 20),
-                  tooltip: 'Переименовать проект',
-                  onPressed: _openEditName,
-                ),
-            ],
-          ),
-          body: Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.folder_outlined,
-                    size: 56,
-                    color: theme.colorScheme.primary.withValues(alpha: 0.85),
+    return BlocProvider(
+      create: (context) => sl<TaskBloc>(),
+      child: Builder(
+        builder: (contextWithTaskBloc) {
+          return BlocBuilder<ProjectBloc, ProjectState>(
+            buildWhen: (a, b) => a.selectedProject != b.selectedProject,
+            builder: (context, projectState) {
+              final project =
+                  projectState.selectedProject?.id == widget.project.id
+                  ? projectState.selectedProject!
+                  : widget.project;
+              return Scaffold(
+                appBar: AppBar(
+                  leading: IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () => Navigator.of(context).pop(),
                   ),
-                  const SizedBox(height: 20),
-                  Text(
-                    project.name,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
+                  title: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          project.name,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  actions: [
+                    FilledButton.icon(
+                      onPressed: () => _openCreateTask(contextWithTaskBloc),
+                      icon: const Icon(Icons.add, size: 20),
+                      label: const Text('Создать задачу'),
                     ),
+                    IconButton(
+                      icon: const Icon(Icons.view_column),
+                      tooltip: 'Колонки',
+                      onPressed: _openColumns,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.label_outline),
+                      tooltip: 'Метки',
+                      onPressed: _openLabels,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.history),
+                      tooltip: 'История',
+                      onPressed: _openHistory,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.people),
+                      tooltip: 'Участники проекта',
+                      onPressed: _openMembers,
+                    ),
+                    if (project.isCurrentUserAdmin)
+                      IconButton(
+                        icon: const Icon(Icons.edit, size: 20),
+                        tooltip: 'Переименовать проект',
+                        onPressed: _openEditName,
+                      ),
+                  ],
+                ),
+                body: BlocProvider.value(
+                  value: contextWithTaskBloc.read<TaskBloc>(),
+                  child: TasksScreen(
+                    project: project,
+                    onRegisterRefresh: _onRegisterRefresh,
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Участники и история — кнопки на панели сверху.',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyLarge?.copyWith(color: muted),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
+                ),
+              );
+            },
+          );
+        },
+      ),
     );
   }
 }

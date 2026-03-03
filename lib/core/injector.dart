@@ -6,6 +6,7 @@ import 'package:voosu/data/db/app_database.dart';
 import 'package:voosu/domain/entities/message.dart';
 import 'package:voosu/domain/entities/message_deleted_payload.dart';
 import 'package:voosu/domain/entities/message_read_payload.dart';
+import 'package:voosu/domain/entities/task_update_payload.dart';
 import 'package:voosu/core/auth_interceptor.dart';
 import 'package:voosu/core/grpc_channel_manager.dart';
 import 'package:voosu/core/connection_status.dart';
@@ -34,12 +35,29 @@ import 'package:voosu/domain/usecases/auth/logout_usecase.dart';
 import 'package:voosu/domain/usecases/auth/refresh_token_usecase.dart';
 import 'package:voosu/domain/usecases/project/add_user_to_project_usecase.dart';
 import 'package:voosu/domain/usecases/project/create_project_usecase.dart';
+import 'package:voosu/domain/usecases/project/create_task_usecase.dart';
 import 'package:voosu/domain/usecases/project/get_project_members_usecase.dart';
 import 'package:voosu/domain/usecases/project/get_project_usecase.dart';
 import 'package:voosu/domain/usecases/project/get_projects_usecase.dart';
 import 'package:voosu/domain/usecases/project/remove_user_from_project_usecase.dart';
 import 'package:voosu/domain/usecases/project/update_project_usecase.dart';
+import 'package:voosu/domain/usecases/project/get_task_usecase.dart';
+import 'package:voosu/domain/usecases/project/get_tasks_usecase.dart';
+import 'package:voosu/domain/usecases/project/edit_task_column_id_usecase.dart';
+import 'package:voosu/domain/usecases/project/edit_task_usecase.dart';
+import 'package:voosu/domain/usecases/project/delete_task_usecase.dart';
+import 'package:voosu/domain/usecases/project/get_task_comments_usecase.dart';
+import 'package:voosu/domain/usecases/project/add_task_comment_usecase.dart';
+import 'package:voosu/domain/usecases/project/get_project_columns_usecase.dart';
+import 'package:voosu/domain/usecases/project/create_project_column_usecase.dart';
+import 'package:voosu/domain/usecases/project/edit_project_column_usecase.dart';
+import 'package:voosu/domain/usecases/project/delete_project_column_usecase.dart';
+import 'package:voosu/domain/usecases/project/get_project_labels_usecase.dart';
+import 'package:voosu/domain/usecases/project/create_project_label_usecase.dart';
+import 'package:voosu/domain/usecases/project/update_project_label_usecase.dart';
+import 'package:voosu/domain/usecases/project/delete_project_label_usecase.dart';
 import 'package:voosu/domain/usecases/project/get_project_history_usecase.dart';
+import 'package:voosu/domain/usecases/project/get_task_history_usecase.dart';
 import 'package:voosu/domain/usecases/chat/get_chats_usecase.dart';
 import 'package:voosu/domain/usecases/chat/create_chat_usecase.dart';
 import 'package:voosu/domain/usecases/chat/create_group_chat_usecase.dart';
@@ -60,6 +78,7 @@ import 'package:voosu/domain/usecases/search/search_users_usecase.dart';
 import 'package:voosu/presentation/screens/auth/bloc/auth_bloc.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_bloc.dart';
 import 'package:voosu/presentation/screens/projects/bloc/project_bloc.dart';
+import 'package:voosu/presentation/screens/tasks/bloc/task_bloc.dart';
 
 final sl = GetIt.instance;
 
@@ -120,6 +139,10 @@ Future<void> init() async {
     () => StreamController<int>.broadcast(),
   );
 
+  sl.registerLazySingleton<StreamController<TaskUpdatePayload>>(
+    () => StreamController<TaskUpdatePayload>.broadcast(),
+  );
+
   sl.registerLazySingleton<StreamController<Object?>>(
     () => StreamController<Object?>.broadcast(),
   );
@@ -155,6 +178,7 @@ Future<void> init() async {
       messageDeletedSink: sl<StreamController<MessageDeletedPayload>>().sink,
       messageReadSink: sl<StreamController<MessageReadPayload>>().sink,
       userTypingSink: sl<StreamController<int>>().sink,
+      taskUpdateSink: sl<StreamController<TaskUpdatePayload>>().sink,
       chatListRefreshSink: sl<StreamController<Object?>>().sink,
       syncRestoredSink: sl<StreamController<Object?>>(instanceName: 'syncRestored').sink,
     ),
@@ -208,7 +232,24 @@ Future<void> init() async {
   sl.registerFactory(() => GetProjectMembersUseCase(sl()));
   sl.registerFactory(() => UpdateProjectUseCase(sl()));
   sl.registerFactory(() => RemoveUserFromProjectUseCase(sl()));
+  sl.registerFactory(() => CreateTaskUseCase(sl()));
+  sl.registerFactory(() => GetTasksUseCase(sl()));
+  sl.registerFactory(() => GetTaskUseCase(sl()));
+  sl.registerFactory(() => EditTaskColumnIdUseCase(sl()));
+  sl.registerFactory(() => EditTaskUseCase(sl()));
+  sl.registerFactory(() => DeleteTaskUseCase(sl()));
+  sl.registerFactory(() => GetTaskCommentsUseCase(sl()));
+  sl.registerFactory(() => AddTaskCommentUseCase(sl()));
+  sl.registerFactory(() => GetProjectColumnsUseCase(sl()));
+  sl.registerFactory(() => CreateProjectColumnUseCase(sl()));
+  sl.registerFactory(() => EditProjectColumnUseCase(sl()));
+  sl.registerFactory(() => DeleteProjectColumnUseCase(sl()));
+  sl.registerFactory(() => GetProjectLabelsUseCase(sl()));
+  sl.registerFactory(() => CreateProjectLabelUseCase(sl()));
+  sl.registerFactory(() => UpdateProjectLabelUseCase(sl()));
+  sl.registerFactory(() => DeleteProjectLabelUseCase(sl()));
   sl.registerFactory(() => GetProjectHistoryUseCase(sl()));
+  sl.registerFactory(() => GetTaskHistoryUseCase(sl()));
   sl.registerFactory(() => GetChatsUseCase(sl()));
   sl.registerFactory(() => CreateChatUseCase(sl()));
   sl.registerFactory(() => CreateGroupChatUseCase(sl()));
@@ -280,4 +321,13 @@ Future<void> init() async {
     ),
   );
 
+  sl.registerFactory(
+    () => TaskBloc(
+      getTasksUseCase: sl(),
+      createTaskUseCase: sl(),
+      editTaskColumnIdUseCase: sl(),
+      editTaskUseCase: sl(),
+      deleteTaskUseCase: sl(),
+    ),
+  );
 }
