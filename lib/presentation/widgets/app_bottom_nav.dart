@@ -45,6 +45,13 @@ class AppBottomNav extends StatelessWidget {
                 isSelected: selected == NavDestination.projects,
                 onTap: () => onDestinationSelected(NavDestination.projects),
               ),
+              _NavItem(
+                icon: Icons.menu_rounded,
+                selectedIcon: Icons.menu_rounded,
+                label: 'Меню',
+                isSelected: selected == NavDestination.menu,
+                onTap: () => onDestinationSelected(NavDestination.menu),
+              ),
               ...[if (trailing != null) trailing!],
             ],
           ),

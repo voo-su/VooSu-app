@@ -30,9 +30,12 @@ import 'package:voosu/domain/repositories/account_repository.dart';
 import 'package:voosu/domain/repositories/auth_repository.dart';
 import 'package:voosu/domain/repositories/project_repository.dart';
 import 'package:voosu/domain/repositories/chat_repository.dart';
+import 'package:voosu/domain/usecases/account/change_password_usecase.dart';
+import 'package:voosu/domain/usecases/account/get_devices_usecase.dart';
 import 'package:voosu/domain/usecases/auth/email_auth_usecases.dart';
 import 'package:voosu/domain/usecases/auth/logout_usecase.dart';
 import 'package:voosu/domain/usecases/auth/refresh_token_usecase.dart';
+import 'package:voosu/domain/usecases/account/revoke_device_usecase.dart';
 import 'package:voosu/domain/usecases/project/add_user_to_project_usecase.dart';
 import 'package:voosu/domain/usecases/project/create_project_usecase.dart';
 import 'package:voosu/domain/usecases/project/create_task_usecase.dart';
@@ -77,6 +80,7 @@ import 'package:voosu/domain/usecases/chat/set_chat_notifications_usecase.dart';
 import 'package:voosu/domain/usecases/search/search_users_usecase.dart';
 import 'package:voosu/presentation/screens/auth/bloc/auth_bloc.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_bloc.dart';
+import 'package:voosu/presentation/screens/devices/bloc/devices_bloc.dart';
 import 'package:voosu/presentation/screens/projects/bloc/project_bloc.dart';
 import 'package:voosu/presentation/screens/tasks/bloc/task_bloc.dart';
 
@@ -223,6 +227,15 @@ Future<void> init() async {
   sl.registerFactory(() => VerifyLoginUseCase(sl()));
   sl.registerFactory(() => RefreshTokenUseCase(sl()));
   sl.registerFactory(() => LogoutUseCase(sl()));
+  sl.registerFactory(
+    () => ChangePasswordUseCase(
+      sl<AccountRepositoryImpl>(),
+      sl<UserLocalDataSourceImpl>(),
+    ),
+  );
+  sl.registerFactory(() => GetDevicesUseCase(sl()));
+  sl.registerFactory(() => RevokeDeviceUseCase(sl()));
+
   sl.registerFactory(() => SearchUsersUseCase(sl<ISearchRemoteDataSource>()));
 
   sl.registerFactory(() => CreateProjectUseCase(sl()));
@@ -307,6 +320,10 @@ Future<void> init() async {
       ptsSyncService: sl<PtsSyncService>(),
       chatNotificationSettings: sl<ChatNotificationSettingsLocalDataSource>(),
     ),
+  );
+
+  sl.registerFactory(
+    () => DevicesBloc(getDevicesUseCase: sl(), revokeDeviceUseCase: sl()),
   );
 
   sl.registerFactory(

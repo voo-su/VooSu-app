@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 
 class MobileMenuScreen extends StatelessWidget {
   final VoidCallback onSelectEditor;
-  final VoidCallback onLogout;
+  final VoidCallback onSelectProfile;
   final bool showAdmin;
   final VoidCallback? onSelectAdmin;
 
   const MobileMenuScreen({
     super.key,
     required this.onSelectEditor,
-    required this.onLogout,
+    required this.onSelectProfile,
     this.showAdmin = false,
     this.onSelectAdmin,
   });
@@ -37,12 +37,12 @@ class MobileMenuScreen extends StatelessWidget {
           Card(
             child: ListTile(
               leading: Icon(
-                Icons.logout_rounded,
-                color: theme.colorScheme.error,
+                Icons.person_rounded,
+                color: theme.colorScheme.primary,
               ),
-              title: const Text('Выйти'),
+              title: const Text('Профиль'),
               trailing: const Icon(Icons.chevron_right),
-              onTap: onLogout,
+              onTap: onSelectProfile,
             ),
           ),
           if (showAdmin && onSelectAdmin != null) ...[

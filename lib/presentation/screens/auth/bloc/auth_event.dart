@@ -57,3 +57,13 @@ class AuthCheckRequested extends AuthEvent {
 class AuthRefreshTokenInBackground extends AuthEvent {
   const AuthRefreshTokenInBackground();
 }
+
+class AuthProfilePhotoUpdated extends AuthEvent {
+  final int avatarFileId;
+  final List<int>? imageBytes;
+
+  const AuthProfilePhotoUpdated(this.avatarFileId, [this.imageBytes]);
+
+  @override
+  List<Object?> get props => [avatarFileId, imageBytes];
+}

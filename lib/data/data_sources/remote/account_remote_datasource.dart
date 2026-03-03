@@ -9,13 +9,27 @@ import 'package:voosu/core/grpc_error_handler.dart';
 import 'package:voosu/core/log/logs.dart';
 import 'package:voosu/core/reconnect_policy.dart';
 import 'package:voosu/data/data_sources/local/user_local_data_source.dart';
+import 'package:voosu/domain/entities/device.dart';
+import 'package:voosu/domain/repositories/account_repository.dart';
 import 'package:voosu/generated/grpc_pb/account.pbgrpc.dart' as accountpb;
 import 'package:voosu/generated/grpc_pb/file.pbgrpc.dart' as filepb;
 
 abstract class IAccountRemoteDataSource {
+  Future<void> changePassword(
+    String oldPassword,
+    String newPassword, [
+    String? currentRefreshToken,
+  ]);
+
+  Future<List<Device>> getDevices();
+
+  Future<void> revokeDevice(int deviceId);
+
   Stream<accountpb.UpdateResponse> getUpdates();
 
   Future<accountpb.GetMissedUpdatesResponse> getMissedUpdates(int pts);
+
+  Future<UploadProfilePhotoResult> uploadProfilePhoto(int fileId);
 
   Future<List<int>> getFile(int fileId);
 
@@ -41,6 +55,100 @@ class AccountRemoteDataSource implements IAccountRemoteDataSource {
   );
 
   accountpb.AccountServiceClient get _client => _channelManager.accountClient;
+
+  @override
+  Future<void> changePassword(
+    String oldPassword,
+    String newPassword,
+    [String? currentRefreshToken]
+  ) async {
+    Logs().d('AccountRemoteDataSource: смена пароля');
+    try {
+      final request = accountpb.ChangePasswordRequest(
+        oldPassword: oldPassword,
+        newPassword: newPassword,
+      );
+      final refreshToken = currentRefreshToken ?? _userLocal.refreshToken;
+      if (refreshToken != null && refreshToken.trim().isNotEmpty) {
+        request.currentRefreshToken = refreshToken.trim();
+      }
+
+      await _client.changePassword(request);
+      Logs().i('AccountRemoteDataSource: пароль изменён');
+    } on GrpcError catch (e) {
+      Logs().e('AccountRemoteDataSource: ошибка смены пароля', e);
+      if (e.code == StatusCode.invalidArgument) {
+        throw NetworkFailure('Неверные данные');
+      }
+
+      throwGrpcError(e, 'Ошибка смены пароля');
+    } catch (e) {
+      Logs().e('AccountRemoteDataSource: ошибка смены пароля', e);
+      throw ApiFailure('Ошибка смены пароля');
+    }
+  }
+
+  @override
+  Future<List<Device>> getDevices() async {
+    Logs().d('AccountRemoteDataSource: список устройств');
+    try {
+      final request = accountpb.GetDevicesRequest();
+      final response = await _client.getDevices(request);
+      final devices = response.devices.map((d) => Device(
+        id: d.id,
+        createdAt: d.createdAtSeconds.toInt(),
+      ))
+      .toList();
+
+      Logs().i('AccountRemoteDataSource: получено ${devices.length} устройств');
+
+      return devices;
+    } on GrpcError catch (e) {
+      Logs().e('AccountRemoteDataSource: ошибка списка устройств', e);
+      throwGrpcError(e, 'Ошибка загрузки устройств');
+    } catch (e) {
+      Logs().e('AccountRemoteDataSource: ошибка списка устройств', e);
+      throw ApiFailure('Ошибка загрузки устройств');
+    }
+  }
+
+  @override
+  Future<void> revokeDevice(int deviceId) async {
+    Logs().d('AccountRemoteDataSource: отзыв устройства $deviceId');
+    try {
+      final request = accountpb.RevokeDeviceRequest(deviceId: deviceId);
+      await _client.revokeDevice(request);
+      Logs().i('AccountRemoteDataSource: устройство отозвано');
+    } on GrpcError catch (e) {
+      Logs().e('AccountRemoteDataSource: ошибка отзыва устройства', e);
+      if (e.code == StatusCode.notFound) {
+        throw NetworkFailure('Устройство не найдено');
+      }
+      throwGrpcError(e, 'Ошибка отзыва устройства');
+    } catch (e) {
+      Logs().e('AccountRemoteDataSource: ошибка отзыва устройства', e);
+      throw ApiFailure('Ошибка отзыва устройства');
+    }
+  }
+
+  @override
+  Future<UploadProfilePhotoResult> uploadProfilePhoto(int fileId) async {
+    Logs().d('AccountRemoteDataSource: загрузка фото профиля');
+    try {
+      final request = accountpb.UploadProfilePhotoRequest(fileId: Int64(fileId));
+      final response = await _client.uploadProfilePhoto(request);
+      Logs().i('AccountRemoteDataSource: фото профиля загружено');
+      return UploadProfilePhotoResult(
+        avatarFileId: response.avatarFileId.toInt(),
+      );
+    } on GrpcError catch (e) {
+      Logs().e('AccountRemoteDataSource: ошибка загрузки фото', e);
+      throwGrpcError(e, 'Ошибка загрузки фото');
+    } catch (e) {
+      Logs().e('AccountRemoteDataSource: ошибка загрузки фото', e);
+      throw ApiFailure('Ошибка загрузки фото');
+    }
+  }
 
   @override
   Future<List<int>> getFile(int fileId) async {

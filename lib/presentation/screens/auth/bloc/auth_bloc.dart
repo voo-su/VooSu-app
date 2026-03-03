@@ -46,6 +46,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthLogoutRequested>(_onLogoutRequested);
     on<AuthClearError>(_onClearError);
     on<AuthCheckRequested>(_onCheckRequested);
+    on<AuthProfilePhotoUpdated>(_onProfilePhotoUpdated);
   }
 
   @override
@@ -411,5 +412,16 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
   void _onClearError(AuthClearError event, Emitter<AuthState> emit) {
     emit(state.copyWith(error: null));
+  }
+
+  void _onProfilePhotoUpdated(
+    AuthProfilePhotoUpdated event,
+    Emitter<AuthState> emit,
+  ) {
+    final u = state.user;
+    if (u == null) return;
+    final newUser = u.copyWith(avatarFileId: event.avatarFileId);
+    tokenStorage.saveUser(newUser);
+    emit(state.copyWith(user: newUser));
   }
 }

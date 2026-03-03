@@ -4,19 +4,18 @@ import 'package:voosu/core/theme/app_theme.dart';
 enum NavDestination {
   chat,
   projects,
+  profile,
 }
 
 class SideNavigation extends StatelessWidget {
   final NavDestination selected;
   final ValueChanged<NavDestination> onDestinationSelected;
-  final VoidCallback onLogout;
   final Widget? trailing;
 
   const SideNavigation({
     super.key,
     required this.selected,
     required this.onDestinationSelected,
-    required this.onLogout,
     this.trailing,
   });
 
@@ -57,11 +56,11 @@ class SideNavigation extends StatelessWidget {
           ),
           const Spacer(),
           _RailIcon(
-            icon: Icons.logout_rounded,
-            selectedIcon: Icons.logout_rounded,
-            isSelected: false,
-            tooltip: 'Выйти',
-            onTap: onLogout,
+            icon: Icons.person_outline_rounded,
+            selectedIcon: Icons.person_rounded,
+            isSelected: selected == NavDestination.profile,
+            tooltip: 'Профиль',
+            onTap: () => onDestinationSelected(NavDestination.profile),
           ),
           const SizedBox(height: 12),
           if (trailing != null) ...[
