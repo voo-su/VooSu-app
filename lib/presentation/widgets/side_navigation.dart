@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:voosu/core/theme/app_theme.dart';
 
-enum NavDestination {
-  chat,
-  projects,
-  profile,
-}
+enum NavDestination { chat, projects, profile, menu }
 
 class SideNavigation extends StatelessWidget {
   final NavDestination selected;

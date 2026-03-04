@@ -5,6 +5,9 @@ class User extends Equatable {
   final String username;
   final String name;
   final String surname;
+  final int gender;
+  final String birthday;
+  final String about;
   final int? avatarFileId;
 
   const User({
@@ -12,15 +15,29 @@ class User extends Equatable {
     required this.username,
     required this.name,
     required this.surname,
+    this.gender = 0,
+    this.birthday = '',
+    this.about = '',
     this.avatarFileId,
   });
 
-  User copyWith({int? avatarFileId}) {
+  User copyWith({
+    String? username,
+    String? name,
+    String? surname,
+    int? gender,
+    String? birthday,
+    String? about,
+    int? avatarFileId,
+  }) {
     return User(
       id: id,
-      username: username,
-      name: name,
-      surname: surname,
+      username: username ?? this.username,
+      name: name ?? this.name,
+      surname: surname ?? this.surname,
+      gender: gender ?? this.gender,
+      birthday: birthday ?? this.birthday,
+      about: about ?? this.about,
       avatarFileId: avatarFileId ?? this.avatarFileId,
     );
   }
@@ -32,5 +49,14 @@ class User extends Equatable {
   }
 
   @override
-  List<Object?> get props => [id, username, name, surname, avatarFileId];
+  List<Object?> get props => [
+    id,
+    username,
+    name,
+    surname,
+    gender,
+    birthday,
+    about,
+    avatarFileId,
+  ];
 }

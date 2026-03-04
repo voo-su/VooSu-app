@@ -58,6 +58,10 @@ class AuthRefreshTokenInBackground extends AuthEvent {
   const AuthRefreshTokenInBackground();
 }
 
+class AuthClearNeedsUpdate extends AuthEvent {
+  const AuthClearNeedsUpdate();
+}
+
 class AuthProfilePhotoUpdated extends AuthEvent {
   final int avatarFileId;
   final List<int>? imageBytes;
@@ -66,4 +70,32 @@ class AuthProfilePhotoUpdated extends AuthEvent {
 
   @override
   List<Object?> get props => [avatarFileId, imageBytes];
+}
+
+class AuthUsernameUpdated extends AuthEvent {
+  final String username;
+
+  const AuthUsernameUpdated(this.username);
+
+  @override
+  List<Object?> get props => [username];
+}
+
+class AuthProfilePersonalUpdated extends AuthEvent {
+  final String name;
+  final String surname;
+  final int gender;
+  final String birthday;
+  final String about;
+
+  const AuthProfilePersonalUpdated({
+    required this.name,
+    required this.surname,
+    required this.gender,
+    required this.birthday,
+    required this.about,
+  });
+
+  @override
+  List<Object?> get props => [name, surname, gender, birthday, about];
 }

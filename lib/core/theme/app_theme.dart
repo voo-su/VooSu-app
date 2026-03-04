@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 class AppTheme {
   AppTheme._();
 
-  static const Color _primary = Color(0xFF4A6FA5);
+  static const Color primaryAccent = Color(0xFF4A6FA5);
 
   static Color _primaryDarkFrom(Color primary) {
     return Color.lerp(primary, const Color(0xFF000000), 0.25)!;
   }
+
+  static Color get _primary => primaryAccent;
 
   static const Color _darkBg = Color(0xFF252A33);
   static const Color _darkSecondary = Color(0xFF1E2229);
@@ -20,16 +22,17 @@ class AppTheme {
   static const Color _lightTertiary = Color(0xFFE6E9EF);
   static const Color _lightOnSurface = Color(0xFF2C3E50);
 
-  static ThemeData themeLight() {
-    final pDark = _primaryDarkFrom(_primary);
+  static ThemeData themeLight([Color? primary]) {
+    final p = primary ?? _primary;
+    final pDark = _primaryDarkFrom(p);
     return ThemeData(
       useMaterial3: true,
       fontFamily: 'Inter',
       brightness: Brightness.light,
       colorScheme: ColorScheme.light(
-        primary: _primary,
+        primary: p,
         onPrimary: Colors.white,
-        primaryContainer: _primary.withValues(alpha: 0.18),
+        primaryContainer: p.withValues(alpha: 0.18),
         onPrimaryContainer: pDark,
         surface: _lightSecondary,
         onSurface: _lightOnSurface,
@@ -91,16 +94,17 @@ class AppTheme {
     );
   }
 
-  static ThemeData get light => themeLight();
+  static ThemeData get light => themeLight(null);
 
-  static ThemeData themeDark() {
-    final pDark = _primaryDarkFrom(_primary);
+  static ThemeData themeDark([Color? primary]) {
+    final p = primary ?? _primary;
+    final pDark = _primaryDarkFrom(p);
     return ThemeData(
       useMaterial3: true,
       fontFamily: 'Inter',
       brightness: Brightness.dark,
       colorScheme: ColorScheme.dark(
-        primary: _primary,
+        primary: p,
         onPrimary: Colors.white,
         primaryContainer: pDark,
         onPrimaryContainer: _darkOnSurface,
@@ -164,7 +168,7 @@ class AppTheme {
     );
   }
 
-  static ThemeData get dark => themeDark();
+  static ThemeData get dark => themeDark(null);
 
   static Color railBackground(BuildContext context) {
     return Theme.of(context).brightness == Brightness.dark

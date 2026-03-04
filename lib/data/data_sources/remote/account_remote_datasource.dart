@@ -15,11 +15,19 @@ import 'package:voosu/generated/grpc_pb/account.pbgrpc.dart' as accountpb;
 import 'package:voosu/generated/grpc_pb/file.pbgrpc.dart' as filepb;
 
 abstract class IAccountRemoteDataSource {
-  Future<void> changePassword(
-    String oldPassword,
-    String newPassword, [
-    String? currentRefreshToken,
-  ]);
+  Future<void> changeUsername(String username);
+
+  Future<void> updateProfilePersonal({
+    required String name,
+    required String surname,
+    required int gender,
+    required String birthday,
+    required String about,
+  });
+
+  Future<String> requestEmailChange(String newEmail);
+
+  Future<void> verifyEmailChange(String verificationToken, String code);
 
   Future<List<Device>> getDevices();
 
@@ -57,34 +65,89 @@ class AccountRemoteDataSource implements IAccountRemoteDataSource {
   accountpb.AccountServiceClient get _client => _channelManager.accountClient;
 
   @override
-  Future<void> changePassword(
-    String oldPassword,
-    String newPassword,
-    [String? currentRefreshToken]
-  ) async {
-    Logs().d('AccountRemoteDataSource: смена пароля');
+  Future<void> updateProfilePersonal({
+    required String name,
+    required String surname,
+    required int gender,
+    required String birthday,
+    required String about,
+  }) async {
+    Logs().d('AccountRemoteDataSource: личные данные профиля');
     try {
-      final request = accountpb.ChangePasswordRequest(
-        oldPassword: oldPassword,
-        newPassword: newPassword,
+      await _client.updateProfilePersonal(
+        accountpb.UpdateProfilePersonalRequest(
+          name: name.trim(),
+          surname: surname.trim(),
+          gender: gender,
+          birthday: birthday.trim(),
+          about: about.trim(),
+        ),
       );
-      final refreshToken = currentRefreshToken ?? _userLocal.refreshToken;
-      if (refreshToken != null && refreshToken.trim().isNotEmpty) {
-        request.currentRefreshToken = refreshToken.trim();
-      }
-
-      await _client.changePassword(request);
-      Logs().i('AccountRemoteDataSource: пароль изменён');
+      Logs().i('AccountRemoteDataSource: профиль обновлён');
     } on GrpcError catch (e) {
-      Logs().e('AccountRemoteDataSource: ошибка смены пароля', e);
-      if (e.code == StatusCode.invalidArgument) {
-        throw NetworkFailure('Неверные данные');
-      }
-
-      throwGrpcError(e, 'Ошибка смены пароля');
+      Logs().e('AccountRemoteDataSource: личные данные', e);
+      throwGrpcError(e, 'Ошибка сохранения профиля');
     } catch (e) {
-      Logs().e('AccountRemoteDataSource: ошибка смены пароля', e);
-      throw ApiFailure('Ошибка смены пароля');
+      Logs().e('AccountRemoteDataSource: личные данные', e);
+      throw ApiFailure('Ошибка сохранения профиля');
+    }
+  }
+
+  @override
+  Future<void> changeUsername(String username) async {
+    Logs().d('AccountRemoteDataSource: смена логина');
+    try {
+      await _client.changeUsername(
+        accountpb.ChangeUsernameRequest(username: username.trim()),
+      );
+      Logs().i('AccountRemoteDataSource: логин изменён');
+    } on GrpcError catch (e) {
+      Logs().e('AccountRemoteDataSource: ошибка смены логина', e);
+      if (e.code == StatusCode.alreadyExists) {
+        throw NetworkFailure(e.message ?? 'Этот логин уже занят');
+      }
+      throwGrpcError(e, 'Ошибка смены логина');
+    } catch (e) {
+      Logs().e('AccountRemoteDataSource: ошибка смены логина', e);
+      throw ApiFailure('Ошибка смены логина');
+    }
+  }
+
+  @override
+  Future<String> requestEmailChange(String newEmail) async {
+    Logs().d('AccountRemoteDataSource: запрос смены почты');
+    try {
+      final response = await _client.requestEmailChange(
+        accountpb.RequestEmailChangeRequest(newEmail: newEmail.trim()),
+      );
+      Logs().i('AccountRemoteDataSource: код отправлен на новую почту');
+      return response.verificationToken;
+    } on GrpcError catch (e) {
+      Logs().e('AccountRemoteDataSource: запрос смены почты', e);
+      throwGrpcError(e, 'Не удалось отправить код');
+    } catch (e) {
+      Logs().e('AccountRemoteDataSource: запрос смены почты', e);
+      throw ApiFailure('Ошибка запроса смены почты');
+    }
+  }
+
+  @override
+  Future<void> verifyEmailChange(String verificationToken, String code) async {
+    Logs().d('AccountRemoteDataSource: подтверждение смены почты');
+    try {
+      await _client.verifyEmailChange(
+        accountpb.VerifyEmailChangeRequest(
+          verificationToken: verificationToken.trim(),
+          code: code.trim(),
+        ),
+      );
+      Logs().i('AccountRemoteDataSource: почта изменена');
+    } on GrpcError catch (e) {
+      Logs().e('AccountRemoteDataSource: подтверждение смены почты', e);
+      throwGrpcError(e, 'Неверный код или срок действия истёк');
+    } catch (e) {
+      Logs().e('AccountRemoteDataSource: подтверждение смены почты', e);
+      throw ApiFailure('Ошибка подтверждения почты');
     }
   }
 

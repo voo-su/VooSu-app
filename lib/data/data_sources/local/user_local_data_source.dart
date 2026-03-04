@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:voosu/data/db/app_database.dart';
 import 'package:voosu/domain/entities/user.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -11,6 +12,9 @@ abstract class UserLocalDataSource {
   void saveTokens(String accessToken, String refreshToken);
   void saveUser(User user);
   void clearTokens();
+
+  ThemeMode getThemeMode();
+  Future<void> setThemeMode(ThemeMode mode);
 
   Future<void> init();
 
@@ -30,7 +34,11 @@ class UserLocalDataSourceImpl implements UserLocalDataSource {
   static const _keyUserUsername = 'voosu_user_username';
   static const _keyUserName = 'voosu_user_name';
   static const _keyUserSurname = 'voosu_user_surname';
+  static const _keyUserGender = 'voosu_user_gender';
+  static const _keyUserBirthday = 'voosu_user_birthday';
+  static const _keyUserAbout = 'voosu_user_about';
   static const _keyUserAvatarFileId = 'voosu_user_avatar_file_id';
+  static const _keyThemeMode = 'voosu_theme_mode';
   static const _syncPtsKey = 'voosu_pts_key';
   static const _syncDateKey = 'voosu_date_key';
 
@@ -63,6 +71,9 @@ class UserLocalDataSourceImpl implements UserLocalDataSource {
     final username = _prefs!.getString(_keyUserUsername);
     final name = _prefs!.getString(_keyUserName);
     final surname = _prefs!.getString(_keyUserSurname) ?? '';
+    final gender = _prefs!.getInt(_keyUserGender) ?? 0;
+    final birthday = _prefs!.getString(_keyUserBirthday) ?? '';
+    final about = _prefs!.getString(_keyUserAbout) ?? '';
     final avatarFileId = _prefs!.getInt(_keyUserAvatarFileId);
 
     if (id != null && username != null && name != null) {
@@ -71,6 +82,9 @@ class UserLocalDataSourceImpl implements UserLocalDataSource {
         username: username,
         name: name,
         surname: surname,
+        gender: gender,
+        birthday: birthday,
+        about: about,
         avatarFileId: avatarFileId,
       );
     } else {
@@ -94,6 +108,9 @@ class UserLocalDataSourceImpl implements UserLocalDataSource {
     _prefs?.setString(_keyUserUsername, user.username);
     _prefs?.setString(_keyUserName, user.name);
     _prefs?.setString(_keyUserSurname, user.surname);
+    _prefs?.setInt(_keyUserGender, user.gender);
+    _prefs?.setString(_keyUserBirthday, user.birthday);
+    _prefs?.setString(_keyUserAbout, user.about);
     if (user.avatarFileId != null) {
       _prefs?.setInt(_keyUserAvatarFileId, user.avatarFileId!);
     } else {
@@ -112,7 +129,29 @@ class UserLocalDataSourceImpl implements UserLocalDataSource {
     _prefs?.remove(_keyUserUsername);
     _prefs?.remove(_keyUserName);
     _prefs?.remove(_keyUserSurname);
+    _prefs?.remove(_keyUserGender);
+    _prefs?.remove(_keyUserBirthday);
+    _prefs?.remove(_keyUserAbout);
     _prefs?.remove(_keyUserAvatarFileId);
+  }
+
+  @override
+  ThemeMode getThemeMode() {
+    final index = _prefs?.getInt(_keyThemeMode);
+    if (index == null) {
+      return ThemeMode.light;
+    }
+
+    if (index < 0 || index >= ThemeMode.values.length) {
+      return ThemeMode.light;
+    }
+
+    return ThemeMode.values[index];
+  }
+
+  @override
+  Future<void> setThemeMode(ThemeMode mode) async {
+    await _prefs?.setInt(_keyThemeMode, mode.index);
   }
 
   @override

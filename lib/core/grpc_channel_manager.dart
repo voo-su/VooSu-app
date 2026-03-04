@@ -15,6 +15,7 @@ class GrpcChannelManager {
 
   ClientChannel? _channel;
   authpb.AuthServiceClient? _authClient;
+  authpb.AuthServiceClient? _authClientNoInterceptor;
   accountpb.AccountServiceClient? _accountClient;
   filepb.FileServiceClient? _fileClient;
   chatpb.ChatServiceClient? _chatClient;
@@ -61,6 +62,10 @@ class GrpcChannelManager {
     );
     return _fileClient!;
   }
+  authpb.AuthServiceClient get authClientForVersionCheck {
+    _authClientNoInterceptor ??= authpb.AuthServiceClient(channel);
+    return _authClientNoInterceptor!;
+  }
 
   chatpb.ChatServiceClient get chatClient {
     _chatClient ??= chatpb.ChatServiceClient(
@@ -96,6 +101,7 @@ class GrpcChannelManager {
     final ch = _channel;
     _channel = null;
     _authClient = null;
+    _authClientNoInterceptor = null;
     _accountClient = null;
     _fileClient = null;
     _chatClient = null;

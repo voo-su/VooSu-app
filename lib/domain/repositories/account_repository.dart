@@ -4,11 +4,19 @@ import 'package:voosu/domain/entities/device.dart';
 abstract interface class AccountRepository {
   Future<Stream<AccountUpdate>> getUpdates();
 
-  Future<void> changePassword(
-    String oldPassword,
-    String newPassword, [
-    String? currentRefreshToken,
-  ]);
+  Future<void> changeUsername(String username);
+
+  Future<void> updateProfilePersonal({
+    required String name,
+    required String surname,
+    required int gender,
+    required String birthday,
+    required String about,
+  });
+
+  Future<String> requestEmailChange(String newEmail);
+
+  Future<void> verifyEmailChange(String verificationToken, String code);
 
   Future<List<Device>> getDevices();
 

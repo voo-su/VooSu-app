@@ -10,6 +10,7 @@ import 'package:voosu/presentation/screens/auth/bloc/auth_bloc.dart';
 import 'package:voosu/presentation/widgets/avatar_from_file_id.dart';
 import 'package:voosu/presentation/screens/auth/bloc/auth_event.dart';
 import 'package:voosu/presentation/screens/auth/bloc/auth_state.dart';
+import 'package:voosu/presentation/screens/profile/edit_profile_personal_screen.dart';
 
 class ProfileOverviewWidget extends StatelessWidget {
   const ProfileOverviewWidget({super.key, this.scrollable = true});
@@ -142,6 +143,53 @@ class ProfileOverviewWidget extends StatelessWidget {
                       ),
                     ],
                   ),
+                  if (user != null) ...[
+                    const SizedBox(height: 20),
+                    if (user.gender > 0) ...[
+                      _InfoRow(
+                        icon: Icons.wc_outlined,
+                        label: 'Пол',
+                        value: user.gender == 1
+                            ? 'Мужской'
+                            : user.gender == 2
+                                ? 'Женский'
+                                : 'Не указан',
+                      ),
+                    ],
+                    if (user.birthday.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      _InfoRow(
+                        icon: Icons.cake_outlined,
+                        label: 'Дата рождения',
+                        value: _formatBirthday(user.birthday),
+                      ),
+                    ],
+                    if (user.about.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      _InfoRow(
+                        icon: Icons.notes_outlined,
+                        label: 'О себе',
+                        value: user.about,
+                      ),
+                    ],
+                    const Divider(height: 32),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(
+                        Icons.edit_outlined,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      title: const Text('Редактировать личные данные'),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () {
+                        Navigator.of(context).push<void>(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const EditProfilePersonalScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -152,6 +200,65 @@ class ProfileOverviewWidget extends StatelessWidget {
         }
         return content;
       },
+    );
+  }
+
+  String _formatBirthday(String iso) {
+    final parts = iso.trim().split('-');
+    if (parts.length != 3) return iso;
+    final y = parts[0];
+    final m = parts[1];
+    final d = parts[2];
+    final yInt = int.tryParse(y);
+    final mInt = int.tryParse(m);
+    final dInt = int.tryParse(d);
+    if (yInt == null || mInt == null || dInt == null) return iso;
+    if (mInt < 1 || mInt > 12 || dInt < 1 || dInt > 31) return iso;
+    return '${dInt.toString().padLeft(2, '0')}.${mInt.toString().padLeft(2, '0')}.$yInt';
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          icon,
+          size: 20,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                value,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

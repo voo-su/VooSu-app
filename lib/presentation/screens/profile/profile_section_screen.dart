@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:voosu/presentation/screens/profile/profile_section.dart';
+import 'package:voosu/presentation/screens/profile/widgets/profile_appearance_widget.dart';
 import 'package:voosu/presentation/screens/profile/widgets/profile_devices_widget.dart';
 import 'package:voosu/presentation/screens/profile/widgets/profile_overview_widget.dart';
 import 'package:voosu/presentation/screens/profile/widgets/profile_security_widget.dart';
@@ -23,6 +24,8 @@ class ProfileSectionScreen extends StatelessWidget {
         return const ProfileOverviewWidget();
       case ProfileSection.devices:
         return const ProfileDevicesWidget();
+      case ProfileSection.appearance:
+        return const ProfileAppearanceWidget();
       case ProfileSection.security:
         return const ProfileSecurityWidget();
     }

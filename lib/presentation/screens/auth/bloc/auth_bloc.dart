@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:voosu/core/app_version.dart' as app_version;
 import 'package:voosu/core/auth_guard.dart';
 import 'package:voosu/core/failures.dart';
+import 'package:voosu/core/grpc_channel_manager.dart';
 import 'package:voosu/core/jwt_util.dart';
 import 'package:voosu/core/log/logs.dart';
 import 'package:voosu/data/data_sources/local/chat_notification_settings_local_data_source.dart';
@@ -11,6 +13,7 @@ import 'package:voosu/data/services/pts_sync_service.dart';
 import 'package:voosu/domain/usecases/auth/email_auth_usecases.dart';
 import 'package:voosu/domain/usecases/auth/logout_usecase.dart';
 import 'package:voosu/domain/usecases/auth/refresh_token_usecase.dart';
+import 'package:voosu/generated/grpc_pb/auth.pb.dart' as auth_pb;
 import 'package:voosu/presentation/screens/auth/bloc/auth_event.dart';
 import 'package:voosu/presentation/screens/auth/bloc/auth_state.dart';
 
@@ -20,6 +23,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final RefreshTokenUseCase refreshTokenUseCase;
   final LogoutUseCase logoutUseCase;
   final UserLocalDataSourceImpl tokenStorage;
+  final GrpcChannelManager channelManager;
   final AuthGuard authGuard;
   final PtsSyncService? ptsSyncService;
   final ChatNotificationSettingsLocalDataSource? chatNotificationSettings;
@@ -32,6 +36,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     required this.refreshTokenUseCase,
     required this.logoutUseCase,
     required this.tokenStorage,
+    required this.channelManager,
     required this.authGuard,
     this.ptsSyncService,
     this.chatNotificationSettings,
@@ -46,7 +51,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthLogoutRequested>(_onLogoutRequested);
     on<AuthClearError>(_onClearError);
     on<AuthCheckRequested>(_onCheckRequested);
+    on<AuthClearNeedsUpdate>(_onClearNeedsUpdate);
     on<AuthProfilePhotoUpdated>(_onProfilePhotoUpdated);
+    on<AuthUsernameUpdated>(_onUsernameUpdated);
+    on<AuthProfilePersonalUpdated>(_onProfilePersonalUpdated);
   }
 
   @override
@@ -106,6 +114,20 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           isAuthenticated: false,
           user: null,
           error: null,
+        ),
+      );
+      return;
+    }
+
+    final versionOk = await _checkVersion(channelManager);
+    if (!versionOk) {
+      emit(
+        state.copyWith(
+          isLoading: false,
+          isAuthenticated: false,
+          user: null,
+          error: null,
+          needsUpdate: true,
         ),
       );
       return;
@@ -200,6 +222,18 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     );
 
     try {
+      final versionOk = await _checkVersion(channelManager);
+      if (!versionOk) {
+        emit(
+          state.copyWith(
+            isLoading: false,
+            isAuthenticated: false,
+            error: null,
+            needsUpdate: true,
+          ),
+        );
+        return;
+      }
       final challenge = await requestLoginCodeUseCase(event.email);
       emit(
         state.copyWith(
@@ -240,6 +274,18 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(state.copyWith(isLoading: true, error: null));
 
     try {
+      final versionOk = await _checkVersion(channelManager);
+      if (!versionOk) {
+        emit(
+          state.copyWith(
+            isLoading: false,
+            isAuthenticated: false,
+            error: null,
+            needsUpdate: true,
+          ),
+        );
+        return;
+      }
       final challenge = await requestLoginCodeUseCase(email);
       emit(
         state.copyWith(
@@ -414,6 +460,13 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(state.copyWith(error: null));
   }
 
+  void _onClearNeedsUpdate(
+    AuthClearNeedsUpdate event,
+    Emitter<AuthState> emit,
+  ) {
+    emit(state.copyWith(needsUpdate: false));
+  }
+
   void _onProfilePhotoUpdated(
     AuthProfilePhotoUpdated event,
     Emitter<AuthState> emit,
@@ -423,5 +476,46 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     final newUser = u.copyWith(avatarFileId: event.avatarFileId);
     tokenStorage.saveUser(newUser);
     emit(state.copyWith(user: newUser));
+  }
+
+  void _onUsernameUpdated(
+    AuthUsernameUpdated event,
+    Emitter<AuthState> emit,
+  ) {
+    final u = state.user;
+    if (u == null) return;
+    final newUser = u.copyWith(username: event.username);
+    tokenStorage.saveUser(newUser);
+    emit(state.copyWith(user: newUser));
+  }
+
+  void _onProfilePersonalUpdated(
+    AuthProfilePersonalUpdated event,
+    Emitter<AuthState> emit,
+  ) {
+    final u = state.user;
+    if (u == null) return;
+    final newUser = u.copyWith(
+      name: event.name,
+      surname: event.surname,
+      gender: event.gender,
+      birthday: event.birthday,
+      about: event.about,
+    );
+    tokenStorage.saveUser(newUser);
+    emit(state.copyWith(user: newUser));
+  }
+
+  Future<bool> _checkVersion(GrpcChannelManager channelManager) async {
+    try {
+      final request = auth_pb.CheckVersionRequest()
+        ..clientBuild = app_version.appBuildNumber;
+      final response = await channelManager.authClientForVersionCheck
+          .checkVersion(request);
+      return response.compatible;
+    } catch (e) {
+      Logs().w('AuthBloc: ошибка проверки версии', e);
+      return true;
+    }
   }
 }

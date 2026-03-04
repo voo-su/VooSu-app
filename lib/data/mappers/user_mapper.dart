@@ -10,6 +10,9 @@ abstract class UserMapper {
       username: proto.username,
       name: proto.name,
       surname: proto.surname,
+      gender: proto.gender,
+      birthday: proto.birthday,
+      about: proto.about,
       avatarFileId: proto.avatarFileId > 0 ? proto.avatarFileId.toInt() : null,
     );
   }

@@ -28,21 +28,58 @@ class AccountRepositoryImpl implements AccountRepository {
   }
 
   @override
-  Future<void> changePassword(
-    String oldPassword,
-    String newPassword,
-    [String? currentRefreshToken]
-  ) async {
+  Future<void> updateProfilePersonal({
+    required String name,
+    required String surname,
+    required int gender,
+    required String birthday,
+    required String about,
+  }) async {
     try {
-      await dataSource.changePassword(
-        oldPassword,
-        newPassword,
-        currentRefreshToken,
+      await dataSource.updateProfilePersonal(
+        name: name,
+        surname: surname,
+        gender: gender,
+        birthday: birthday,
+        about: about,
       );
     } catch (e) {
       if (e is Failure) rethrow;
-      Logs().e('AccountRepository: неожиданная ошибка смены пароля', e);
-      throw ApiFailure('Ошибка смены пароля');
+      Logs().e('AccountRepository: личные данные', e);
+      throw ApiFailure('Ошибка сохранения профиля');
+    }
+  }
+
+  @override
+  Future<void> changeUsername(String username) async {
+    try {
+      await dataSource.changeUsername(username);
+    } catch (e) {
+      if (e is Failure) rethrow;
+      Logs().e('AccountRepository: смена логина', e);
+      throw ApiFailure('Ошибка смены логина');
+    }
+  }
+
+  @override
+  Future<String> requestEmailChange(String newEmail) async {
+    try {
+      return await dataSource.requestEmailChange(newEmail);
+    } catch (e) {
+      if (e is Failure) rethrow;
+      Logs().e('AccountRepository: запрос смены почты', e);
+      throw ApiFailure('Ошибка запроса смены почты');
+    }
+  }
+
+  @override
+  Future<void> verifyEmailChange(String verificationToken, String code) async {
+    try {
+      await dataSource.verifyEmailChange(verificationToken, code);
+    } catch (e) {
+      if (e is Failure) rethrow;
+      Logs().e('AccountRepository: подтверждение смены почты', e);
+      throw ApiFailure('Ошибка подтверждения почты');
     }
   }
 

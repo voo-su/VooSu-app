@@ -30,8 +30,11 @@ import 'package:voosu/domain/repositories/account_repository.dart';
 import 'package:voosu/domain/repositories/auth_repository.dart';
 import 'package:voosu/domain/repositories/project_repository.dart';
 import 'package:voosu/domain/repositories/chat_repository.dart';
-import 'package:voosu/domain/usecases/account/change_password_usecase.dart';
+import 'package:voosu/domain/usecases/account/change_username_usecase.dart';
 import 'package:voosu/domain/usecases/account/get_devices_usecase.dart';
+import 'package:voosu/domain/usecases/account/request_email_change_usecase.dart';
+import 'package:voosu/domain/usecases/account/update_profile_personal_usecase.dart';
+import 'package:voosu/domain/usecases/account/verify_email_change_usecase.dart';
 import 'package:voosu/domain/usecases/auth/email_auth_usecases.dart';
 import 'package:voosu/domain/usecases/auth/logout_usecase.dart';
 import 'package:voosu/domain/usecases/auth/refresh_token_usecase.dart';
@@ -78,6 +81,7 @@ import 'package:voosu/domain/usecases/chat/report_inline_callback_usecase.dart';
 import 'package:voosu/domain/usecases/chat/chat_poll_usecase.dart';
 import 'package:voosu/domain/usecases/chat/set_chat_notifications_usecase.dart';
 import 'package:voosu/domain/usecases/search/search_users_usecase.dart';
+import 'package:voosu/presentation/cubit/theme/theme_cubit.dart';
 import 'package:voosu/presentation/screens/auth/bloc/auth_bloc.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_bloc.dart';
 import 'package:voosu/presentation/screens/devices/bloc/devices_bloc.dart';
@@ -227,12 +231,10 @@ Future<void> init() async {
   sl.registerFactory(() => VerifyLoginUseCase(sl()));
   sl.registerFactory(() => RefreshTokenUseCase(sl()));
   sl.registerFactory(() => LogoutUseCase(sl()));
-  sl.registerFactory(
-    () => ChangePasswordUseCase(
-      sl<AccountRepositoryImpl>(),
-      sl<UserLocalDataSourceImpl>(),
-    ),
-  );
+  sl.registerFactory(() => ChangeUsernameUseCase(sl()));
+  sl.registerFactory(() => UpdateProfilePersonalUseCase(sl()));
+  sl.registerFactory(() => RequestEmailChangeUseCase(sl()));
+  sl.registerFactory(() => VerifyEmailChangeUseCase(sl()));
   sl.registerFactory(() => GetDevicesUseCase(sl()));
   sl.registerFactory(() => RevokeDeviceUseCase(sl()));
 
@@ -316,6 +318,7 @@ Future<void> init() async {
       refreshTokenUseCase: sl(),
       logoutUseCase: sl(),
       tokenStorage: sl<UserLocalDataSourceImpl>(),
+      channelManager: sl(),
       authGuard: sl<AuthGuard>(),
       ptsSyncService: sl<PtsSyncService>(),
       chatNotificationSettings: sl<ChatNotificationSettingsLocalDataSource>(),
@@ -347,4 +350,6 @@ Future<void> init() async {
       deleteTaskUseCase: sl(),
     ),
   );
+
+  sl.registerFactory(() => ThemeCubit(sl<UserLocalDataSourceImpl>()));
 }

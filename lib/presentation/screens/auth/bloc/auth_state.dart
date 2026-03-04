@@ -6,6 +6,7 @@ class AuthState extends Equatable {
   final bool isAuthenticated;
   final User? user;
   final String? error;
+  final bool needsUpdate;
   final bool awaitingLoginCode;
   final String? pendingVerificationToken;
   final String? loginEmail;
@@ -15,6 +16,7 @@ class AuthState extends Equatable {
     this.isAuthenticated = false,
     this.user,
     this.error,
+    this.needsUpdate = false,
     this.awaitingLoginCode = false,
     this.pendingVerificationToken,
     this.loginEmail,
@@ -25,6 +27,7 @@ class AuthState extends Equatable {
     bool? isAuthenticated,
     User? user,
     String? error,
+    bool? needsUpdate,
     bool? awaitingLoginCode,
     String? pendingVerificationToken,
     String? loginEmail,
@@ -35,6 +38,7 @@ class AuthState extends Equatable {
       isAuthenticated: isAuthenticated ?? this.isAuthenticated,
       user: user ?? this.user,
       error: error,
+      needsUpdate: needsUpdate ?? this.needsUpdate,
       awaitingLoginCode: clearLoginCodeFlow
           ? false
           : (awaitingLoginCode ?? this.awaitingLoginCode),
@@ -51,6 +55,7 @@ class AuthState extends Equatable {
     isAuthenticated,
     user,
     error,
+    needsUpdate,
     awaitingLoginCode,
     pendingVerificationToken,
     loginEmail,

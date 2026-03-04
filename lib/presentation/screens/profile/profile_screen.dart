@@ -5,6 +5,7 @@ import 'package:voosu/presentation/screens/auth/bloc/auth_bloc.dart';
 import 'package:voosu/presentation/screens/auth/bloc/auth_event.dart';
 import 'package:voosu/presentation/screens/profile/profile_section.dart';
 import 'package:voosu/presentation/screens/profile/profile_section_screen.dart';
+import 'package:voosu/presentation/screens/profile/widgets/profile_appearance_widget.dart';
 import 'package:voosu/presentation/screens/profile/widgets/profile_devices_widget.dart';
 import 'package:voosu/presentation/screens/profile/widgets/profile_overview_widget.dart';
 import 'package:voosu/presentation/screens/profile/widgets/profile_security_widget.dart';
@@ -62,6 +63,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return ProfileOverviewWidget(scrollable: scrollable);
       case ProfileSection.devices:
         return const ProfileDevicesWidget();
+      case ProfileSection.appearance:
+        return ProfileAppearanceWidget(scrollable: scrollable);
       case ProfileSection.security:
         return ProfileSecurityWidget(scrollable: scrollable);
     }

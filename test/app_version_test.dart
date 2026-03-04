@@ -1,0 +1,8 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:voosu/core/app_version.dart';
+
+void main() {
+  test('appBuildNumber задан', () {
+    expect(appBuildNumber, greaterThanOrEqualTo(1));
+  });
+}
