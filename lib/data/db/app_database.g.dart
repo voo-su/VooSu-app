@@ -390,6 +390,107 @@ class $CachedMessagesTable extends CachedMessages
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _msgTypeMeta = const VerificationMeta(
+    'msgType',
+  );
+  @override
+  late final GeneratedColumn<int> msgType = GeneratedColumn<int>(
+    'msg_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  static const VerificationMeta _extraJsonMeta = const VerificationMeta(
+    'extraJson',
+  );
+  @override
+  late final GeneratedColumn<String> extraJson = GeneratedColumn<String>(
+    'extra_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _codeLangMeta = const VerificationMeta(
+    'codeLang',
+  );
+  @override
+  late final GeneratedColumn<String> codeLang = GeneratedColumn<String>(
+    'code_lang',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _codeTextMeta = const VerificationMeta(
+    'codeText',
+  );
+  @override
+  late final GeneratedColumn<String> codeText = GeneratedColumn<String>(
+    'code_text',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _locationLatitudeMeta = const VerificationMeta(
+    'locationLatitude',
+  );
+  @override
+  late final GeneratedColumn<String> locationLatitude = GeneratedColumn<String>(
+    'location_latitude',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _locationLongitudeMeta = const VerificationMeta(
+    'locationLongitude',
+  );
+  @override
+  late final GeneratedColumn<String> locationLongitude =
+      GeneratedColumn<String>(
+        'location_longitude',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _locationDescriptionMeta =
+      const VerificationMeta('locationDescription');
+  @override
+  late final GeneratedColumn<String> locationDescription =
+      GeneratedColumn<String>(
+        'location_description',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _replyMarkupJsonMeta = const VerificationMeta(
+    'replyMarkupJson',
+  );
+  @override
+  late final GeneratedColumn<String> replyMarkupJson = GeneratedColumn<String>(
+    'reply_markup_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _pollJsonMeta = const VerificationMeta(
+    'pollJson',
+  );
+  @override
+  late final GeneratedColumn<String> pollJson = GeneratedColumn<String>(
+    'poll_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -404,6 +505,15 @@ class $CachedMessagesTable extends CachedMessages
     forwarded,
     forwardedFromMessageId,
     attachmentsJson,
+    msgType,
+    extraJson,
+    codeLang,
+    codeText,
+    locationLatitude,
+    locationLongitude,
+    locationDescription,
+    replyMarkupJson,
+    pollJson,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -515,6 +625,72 @@ class $CachedMessagesTable extends CachedMessages
         ),
       );
     }
+    if (data.containsKey('msg_type')) {
+      context.handle(
+        _msgTypeMeta,
+        msgType.isAcceptableOrUnknown(data['msg_type']!, _msgTypeMeta),
+      );
+    }
+    if (data.containsKey('extra_json')) {
+      context.handle(
+        _extraJsonMeta,
+        extraJson.isAcceptableOrUnknown(data['extra_json']!, _extraJsonMeta),
+      );
+    }
+    if (data.containsKey('code_lang')) {
+      context.handle(
+        _codeLangMeta,
+        codeLang.isAcceptableOrUnknown(data['code_lang']!, _codeLangMeta),
+      );
+    }
+    if (data.containsKey('code_text')) {
+      context.handle(
+        _codeTextMeta,
+        codeText.isAcceptableOrUnknown(data['code_text']!, _codeTextMeta),
+      );
+    }
+    if (data.containsKey('location_latitude')) {
+      context.handle(
+        _locationLatitudeMeta,
+        locationLatitude.isAcceptableOrUnknown(
+          data['location_latitude']!,
+          _locationLatitudeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('location_longitude')) {
+      context.handle(
+        _locationLongitudeMeta,
+        locationLongitude.isAcceptableOrUnknown(
+          data['location_longitude']!,
+          _locationLongitudeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('location_description')) {
+      context.handle(
+        _locationDescriptionMeta,
+        locationDescription.isAcceptableOrUnknown(
+          data['location_description']!,
+          _locationDescriptionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('reply_markup_json')) {
+      context.handle(
+        _replyMarkupJsonMeta,
+        replyMarkupJson.isAcceptableOrUnknown(
+          data['reply_markup_json']!,
+          _replyMarkupJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('poll_json')) {
+      context.handle(
+        _pollJsonMeta,
+        pollJson.isAcceptableOrUnknown(data['poll_json']!, _pollJsonMeta),
+      );
+    }
     return context;
   }
 
@@ -572,6 +748,42 @@ class $CachedMessagesTable extends CachedMessages
         DriftSqlType.string,
         data['${effectivePrefix}attachments_json'],
       ),
+      msgType: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}msg_type'],
+      )!,
+      extraJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}extra_json'],
+      ),
+      codeLang: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}code_lang'],
+      ),
+      codeText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}code_text'],
+      ),
+      locationLatitude: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}location_latitude'],
+      ),
+      locationLongitude: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}location_longitude'],
+      ),
+      locationDescription: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}location_description'],
+      ),
+      replyMarkupJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reply_markup_json'],
+      ),
+      pollJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}poll_json'],
+      ),
     );
   }
 
@@ -594,6 +806,15 @@ class CachedMessage extends DataClass implements Insertable<CachedMessage> {
   final bool forwarded;
   final int forwardedFromMessageId;
   final String? attachmentsJson;
+  final int msgType;
+  final String? extraJson;
+  final String? codeLang;
+  final String? codeText;
+  final String? locationLatitude;
+  final String? locationLongitude;
+  final String? locationDescription;
+  final String? replyMarkupJson;
+  final String? pollJson;
   const CachedMessage({
     required this.id,
     required this.isGroupChat,
@@ -607,6 +828,15 @@ class CachedMessage extends DataClass implements Insertable<CachedMessage> {
     required this.forwarded,
     required this.forwardedFromMessageId,
     this.attachmentsJson,
+    required this.msgType,
+    this.extraJson,
+    this.codeLang,
+    this.codeText,
+    this.locationLatitude,
+    this.locationLongitude,
+    this.locationDescription,
+    this.replyMarkupJson,
+    this.pollJson,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -624,6 +854,31 @@ class CachedMessage extends DataClass implements Insertable<CachedMessage> {
     map['forwarded_from_message_id'] = Variable<int>(forwardedFromMessageId);
     if (!nullToAbsent || attachmentsJson != null) {
       map['attachments_json'] = Variable<String>(attachmentsJson);
+    }
+    map['msg_type'] = Variable<int>(msgType);
+    if (!nullToAbsent || extraJson != null) {
+      map['extra_json'] = Variable<String>(extraJson);
+    }
+    if (!nullToAbsent || codeLang != null) {
+      map['code_lang'] = Variable<String>(codeLang);
+    }
+    if (!nullToAbsent || codeText != null) {
+      map['code_text'] = Variable<String>(codeText);
+    }
+    if (!nullToAbsent || locationLatitude != null) {
+      map['location_latitude'] = Variable<String>(locationLatitude);
+    }
+    if (!nullToAbsent || locationLongitude != null) {
+      map['location_longitude'] = Variable<String>(locationLongitude);
+    }
+    if (!nullToAbsent || locationDescription != null) {
+      map['location_description'] = Variable<String>(locationDescription);
+    }
+    if (!nullToAbsent || replyMarkupJson != null) {
+      map['reply_markup_json'] = Variable<String>(replyMarkupJson);
+    }
+    if (!nullToAbsent || pollJson != null) {
+      map['poll_json'] = Variable<String>(pollJson);
     }
     return map;
   }
@@ -644,6 +899,31 @@ class CachedMessage extends DataClass implements Insertable<CachedMessage> {
       attachmentsJson: attachmentsJson == null && nullToAbsent
           ? const Value.absent()
           : Value(attachmentsJson),
+      msgType: Value(msgType),
+      extraJson: extraJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(extraJson),
+      codeLang: codeLang == null && nullToAbsent
+          ? const Value.absent()
+          : Value(codeLang),
+      codeText: codeText == null && nullToAbsent
+          ? const Value.absent()
+          : Value(codeText),
+      locationLatitude: locationLatitude == null && nullToAbsent
+          ? const Value.absent()
+          : Value(locationLatitude),
+      locationLongitude: locationLongitude == null && nullToAbsent
+          ? const Value.absent()
+          : Value(locationLongitude),
+      locationDescription: locationDescription == null && nullToAbsent
+          ? const Value.absent()
+          : Value(locationDescription),
+      replyMarkupJson: replyMarkupJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(replyMarkupJson),
+      pollJson: pollJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pollJson),
     );
   }
 
@@ -667,6 +947,19 @@ class CachedMessage extends DataClass implements Insertable<CachedMessage> {
         json['forwardedFromMessageId'],
       ),
       attachmentsJson: serializer.fromJson<String?>(json['attachmentsJson']),
+      msgType: serializer.fromJson<int>(json['msgType']),
+      extraJson: serializer.fromJson<String?>(json['extraJson']),
+      codeLang: serializer.fromJson<String?>(json['codeLang']),
+      codeText: serializer.fromJson<String?>(json['codeText']),
+      locationLatitude: serializer.fromJson<String?>(json['locationLatitude']),
+      locationLongitude: serializer.fromJson<String?>(
+        json['locationLongitude'],
+      ),
+      locationDescription: serializer.fromJson<String?>(
+        json['locationDescription'],
+      ),
+      replyMarkupJson: serializer.fromJson<String?>(json['replyMarkupJson']),
+      pollJson: serializer.fromJson<String?>(json['pollJson']),
     );
   }
   @override
@@ -685,6 +978,15 @@ class CachedMessage extends DataClass implements Insertable<CachedMessage> {
       'forwarded': serializer.toJson<bool>(forwarded),
       'forwardedFromMessageId': serializer.toJson<int>(forwardedFromMessageId),
       'attachmentsJson': serializer.toJson<String?>(attachmentsJson),
+      'msgType': serializer.toJson<int>(msgType),
+      'extraJson': serializer.toJson<String?>(extraJson),
+      'codeLang': serializer.toJson<String?>(codeLang),
+      'codeText': serializer.toJson<String?>(codeText),
+      'locationLatitude': serializer.toJson<String?>(locationLatitude),
+      'locationLongitude': serializer.toJson<String?>(locationLongitude),
+      'locationDescription': serializer.toJson<String?>(locationDescription),
+      'replyMarkupJson': serializer.toJson<String?>(replyMarkupJson),
+      'pollJson': serializer.toJson<String?>(pollJson),
     };
   }
 
@@ -701,6 +1003,15 @@ class CachedMessage extends DataClass implements Insertable<CachedMessage> {
     bool? forwarded,
     int? forwardedFromMessageId,
     Value<String?> attachmentsJson = const Value.absent(),
+    int? msgType,
+    Value<String?> extraJson = const Value.absent(),
+    Value<String?> codeLang = const Value.absent(),
+    Value<String?> codeText = const Value.absent(),
+    Value<String?> locationLatitude = const Value.absent(),
+    Value<String?> locationLongitude = const Value.absent(),
+    Value<String?> locationDescription = const Value.absent(),
+    Value<String?> replyMarkupJson = const Value.absent(),
+    Value<String?> pollJson = const Value.absent(),
   }) => CachedMessage(
     id: id ?? this.id,
     isGroupChat: isGroupChat ?? this.isGroupChat,
@@ -717,6 +1028,23 @@ class CachedMessage extends DataClass implements Insertable<CachedMessage> {
     attachmentsJson: attachmentsJson.present
         ? attachmentsJson.value
         : this.attachmentsJson,
+    msgType: msgType ?? this.msgType,
+    extraJson: extraJson.present ? extraJson.value : this.extraJson,
+    codeLang: codeLang.present ? codeLang.value : this.codeLang,
+    codeText: codeText.present ? codeText.value : this.codeText,
+    locationLatitude: locationLatitude.present
+        ? locationLatitude.value
+        : this.locationLatitude,
+    locationLongitude: locationLongitude.present
+        ? locationLongitude.value
+        : this.locationLongitude,
+    locationDescription: locationDescription.present
+        ? locationDescription.value
+        : this.locationDescription,
+    replyMarkupJson: replyMarkupJson.present
+        ? replyMarkupJson.value
+        : this.replyMarkupJson,
+    pollJson: pollJson.present ? pollJson.value : this.pollJson,
   );
   CachedMessage copyWithCompanion(CachedMessagesCompanion data) {
     return CachedMessage(
@@ -746,6 +1074,23 @@ class CachedMessage extends DataClass implements Insertable<CachedMessage> {
       attachmentsJson: data.attachmentsJson.present
           ? data.attachmentsJson.value
           : this.attachmentsJson,
+      msgType: data.msgType.present ? data.msgType.value : this.msgType,
+      extraJson: data.extraJson.present ? data.extraJson.value : this.extraJson,
+      codeLang: data.codeLang.present ? data.codeLang.value : this.codeLang,
+      codeText: data.codeText.present ? data.codeText.value : this.codeText,
+      locationLatitude: data.locationLatitude.present
+          ? data.locationLatitude.value
+          : this.locationLatitude,
+      locationLongitude: data.locationLongitude.present
+          ? data.locationLongitude.value
+          : this.locationLongitude,
+      locationDescription: data.locationDescription.present
+          ? data.locationDescription.value
+          : this.locationDescription,
+      replyMarkupJson: data.replyMarkupJson.present
+          ? data.replyMarkupJson.value
+          : this.replyMarkupJson,
+      pollJson: data.pollJson.present ? data.pollJson.value : this.pollJson,
     );
   }
 
@@ -763,13 +1108,22 @@ class CachedMessage extends DataClass implements Insertable<CachedMessage> {
           ..write('replyToMessageId: $replyToMessageId, ')
           ..write('forwarded: $forwarded, ')
           ..write('forwardedFromMessageId: $forwardedFromMessageId, ')
-          ..write('attachmentsJson: $attachmentsJson')
+          ..write('attachmentsJson: $attachmentsJson, ')
+          ..write('msgType: $msgType, ')
+          ..write('extraJson: $extraJson, ')
+          ..write('codeLang: $codeLang, ')
+          ..write('codeText: $codeText, ')
+          ..write('locationLatitude: $locationLatitude, ')
+          ..write('locationLongitude: $locationLongitude, ')
+          ..write('locationDescription: $locationDescription, ')
+          ..write('replyMarkupJson: $replyMarkupJson, ')
+          ..write('pollJson: $pollJson')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     isGroupChat,
     peerUserId,
@@ -782,7 +1136,16 @@ class CachedMessage extends DataClass implements Insertable<CachedMessage> {
     forwarded,
     forwardedFromMessageId,
     attachmentsJson,
-  );
+    msgType,
+    extraJson,
+    codeLang,
+    codeText,
+    locationLatitude,
+    locationLongitude,
+    locationDescription,
+    replyMarkupJson,
+    pollJson,
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -798,7 +1161,16 @@ class CachedMessage extends DataClass implements Insertable<CachedMessage> {
           other.replyToMessageId == this.replyToMessageId &&
           other.forwarded == this.forwarded &&
           other.forwardedFromMessageId == this.forwardedFromMessageId &&
-          other.attachmentsJson == this.attachmentsJson);
+          other.attachmentsJson == this.attachmentsJson &&
+          other.msgType == this.msgType &&
+          other.extraJson == this.extraJson &&
+          other.codeLang == this.codeLang &&
+          other.codeText == this.codeText &&
+          other.locationLatitude == this.locationLatitude &&
+          other.locationLongitude == this.locationLongitude &&
+          other.locationDescription == this.locationDescription &&
+          other.replyMarkupJson == this.replyMarkupJson &&
+          other.pollJson == this.pollJson);
 }
 
 class CachedMessagesCompanion extends UpdateCompanion<CachedMessage> {
@@ -814,6 +1186,15 @@ class CachedMessagesCompanion extends UpdateCompanion<CachedMessage> {
   final Value<bool> forwarded;
   final Value<int> forwardedFromMessageId;
   final Value<String?> attachmentsJson;
+  final Value<int> msgType;
+  final Value<String?> extraJson;
+  final Value<String?> codeLang;
+  final Value<String?> codeText;
+  final Value<String?> locationLatitude;
+  final Value<String?> locationLongitude;
+  final Value<String?> locationDescription;
+  final Value<String?> replyMarkupJson;
+  final Value<String?> pollJson;
   const CachedMessagesCompanion({
     this.id = const Value.absent(),
     this.isGroupChat = const Value.absent(),
@@ -827,6 +1208,15 @@ class CachedMessagesCompanion extends UpdateCompanion<CachedMessage> {
     this.forwarded = const Value.absent(),
     this.forwardedFromMessageId = const Value.absent(),
     this.attachmentsJson = const Value.absent(),
+    this.msgType = const Value.absent(),
+    this.extraJson = const Value.absent(),
+    this.codeLang = const Value.absent(),
+    this.codeText = const Value.absent(),
+    this.locationLatitude = const Value.absent(),
+    this.locationLongitude = const Value.absent(),
+    this.locationDescription = const Value.absent(),
+    this.replyMarkupJson = const Value.absent(),
+    this.pollJson = const Value.absent(),
   });
   CachedMessagesCompanion.insert({
     this.id = const Value.absent(),
@@ -841,6 +1231,15 @@ class CachedMessagesCompanion extends UpdateCompanion<CachedMessage> {
     this.forwarded = const Value.absent(),
     this.forwardedFromMessageId = const Value.absent(),
     this.attachmentsJson = const Value.absent(),
+    this.msgType = const Value.absent(),
+    this.extraJson = const Value.absent(),
+    this.codeLang = const Value.absent(),
+    this.codeText = const Value.absent(),
+    this.locationLatitude = const Value.absent(),
+    this.locationLongitude = const Value.absent(),
+    this.locationDescription = const Value.absent(),
+    this.replyMarkupJson = const Value.absent(),
+    this.pollJson = const Value.absent(),
   }) : peerUserId = Value(peerUserId),
        fromPeerUserId = Value(fromPeerUserId),
        content = Value(content),
@@ -858,6 +1257,15 @@ class CachedMessagesCompanion extends UpdateCompanion<CachedMessage> {
     Expression<bool>? forwarded,
     Expression<int>? forwardedFromMessageId,
     Expression<String>? attachmentsJson,
+    Expression<int>? msgType,
+    Expression<String>? extraJson,
+    Expression<String>? codeLang,
+    Expression<String>? codeText,
+    Expression<String>? locationLatitude,
+    Expression<String>? locationLongitude,
+    Expression<String>? locationDescription,
+    Expression<String>? replyMarkupJson,
+    Expression<String>? pollJson,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -873,6 +1281,16 @@ class CachedMessagesCompanion extends UpdateCompanion<CachedMessage> {
       if (forwardedFromMessageId != null)
         'forwarded_from_message_id': forwardedFromMessageId,
       if (attachmentsJson != null) 'attachments_json': attachmentsJson,
+      if (msgType != null) 'msg_type': msgType,
+      if (extraJson != null) 'extra_json': extraJson,
+      if (codeLang != null) 'code_lang': codeLang,
+      if (codeText != null) 'code_text': codeText,
+      if (locationLatitude != null) 'location_latitude': locationLatitude,
+      if (locationLongitude != null) 'location_longitude': locationLongitude,
+      if (locationDescription != null)
+        'location_description': locationDescription,
+      if (replyMarkupJson != null) 'reply_markup_json': replyMarkupJson,
+      if (pollJson != null) 'poll_json': pollJson,
     });
   }
 
@@ -889,6 +1307,15 @@ class CachedMessagesCompanion extends UpdateCompanion<CachedMessage> {
     Value<bool>? forwarded,
     Value<int>? forwardedFromMessageId,
     Value<String?>? attachmentsJson,
+    Value<int>? msgType,
+    Value<String?>? extraJson,
+    Value<String?>? codeLang,
+    Value<String?>? codeText,
+    Value<String?>? locationLatitude,
+    Value<String?>? locationLongitude,
+    Value<String?>? locationDescription,
+    Value<String?>? replyMarkupJson,
+    Value<String?>? pollJson,
   }) {
     return CachedMessagesCompanion(
       id: id ?? this.id,
@@ -904,6 +1331,15 @@ class CachedMessagesCompanion extends UpdateCompanion<CachedMessage> {
       forwardedFromMessageId:
           forwardedFromMessageId ?? this.forwardedFromMessageId,
       attachmentsJson: attachmentsJson ?? this.attachmentsJson,
+      msgType: msgType ?? this.msgType,
+      extraJson: extraJson ?? this.extraJson,
+      codeLang: codeLang ?? this.codeLang,
+      codeText: codeText ?? this.codeText,
+      locationLatitude: locationLatitude ?? this.locationLatitude,
+      locationLongitude: locationLongitude ?? this.locationLongitude,
+      locationDescription: locationDescription ?? this.locationDescription,
+      replyMarkupJson: replyMarkupJson ?? this.replyMarkupJson,
+      pollJson: pollJson ?? this.pollJson,
     );
   }
 
@@ -948,6 +1384,33 @@ class CachedMessagesCompanion extends UpdateCompanion<CachedMessage> {
     if (attachmentsJson.present) {
       map['attachments_json'] = Variable<String>(attachmentsJson.value);
     }
+    if (msgType.present) {
+      map['msg_type'] = Variable<int>(msgType.value);
+    }
+    if (extraJson.present) {
+      map['extra_json'] = Variable<String>(extraJson.value);
+    }
+    if (codeLang.present) {
+      map['code_lang'] = Variable<String>(codeLang.value);
+    }
+    if (codeText.present) {
+      map['code_text'] = Variable<String>(codeText.value);
+    }
+    if (locationLatitude.present) {
+      map['location_latitude'] = Variable<String>(locationLatitude.value);
+    }
+    if (locationLongitude.present) {
+      map['location_longitude'] = Variable<String>(locationLongitude.value);
+    }
+    if (locationDescription.present) {
+      map['location_description'] = Variable<String>(locationDescription.value);
+    }
+    if (replyMarkupJson.present) {
+      map['reply_markup_json'] = Variable<String>(replyMarkupJson.value);
+    }
+    if (pollJson.present) {
+      map['poll_json'] = Variable<String>(pollJson.value);
+    }
     return map;
   }
 
@@ -965,7 +1428,16 @@ class CachedMessagesCompanion extends UpdateCompanion<CachedMessage> {
           ..write('replyToMessageId: $replyToMessageId, ')
           ..write('forwarded: $forwarded, ')
           ..write('forwardedFromMessageId: $forwardedFromMessageId, ')
-          ..write('attachmentsJson: $attachmentsJson')
+          ..write('attachmentsJson: $attachmentsJson, ')
+          ..write('msgType: $msgType, ')
+          ..write('extraJson: $extraJson, ')
+          ..write('codeLang: $codeLang, ')
+          ..write('codeText: $codeText, ')
+          ..write('locationLatitude: $locationLatitude, ')
+          ..write('locationLongitude: $locationLongitude, ')
+          ..write('locationDescription: $locationDescription, ')
+          ..write('replyMarkupJson: $replyMarkupJson, ')
+          ..write('pollJson: $pollJson')
           ..write(')'))
         .toString();
   }
@@ -1140,6 +1612,31 @@ class $CachedChatsTable extends CachedChats
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _listIdMeta = const VerificationMeta('listId');
+  @override
+  late final GeneratedColumn<int> listId = GeneratedColumn<int>(
+    'list_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _isPinnedMeta = const VerificationMeta(
+    'isPinned',
+  );
+  @override
+  late final GeneratedColumn<bool> isPinned = GeneratedColumn<bool>(
+    'is_pinned',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_pinned" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1156,6 +1653,8 @@ class $CachedChatsTable extends CachedChats
     avatarFileId,
     lastMessagePreview,
     notificationsMuted,
+    listId,
+    isPinned,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1283,6 +1782,18 @@ class $CachedChatsTable extends CachedChats
         ),
       );
     }
+    if (data.containsKey('list_id')) {
+      context.handle(
+        _listIdMeta,
+        listId.isAcceptableOrUnknown(data['list_id']!, _listIdMeta),
+      );
+    }
+    if (data.containsKey('is_pinned')) {
+      context.handle(
+        _isPinnedMeta,
+        isPinned.isAcceptableOrUnknown(data['is_pinned']!, _isPinnedMeta),
+      );
+    }
     return context;
   }
 
@@ -1348,6 +1859,14 @@ class $CachedChatsTable extends CachedChats
         DriftSqlType.bool,
         data['${effectivePrefix}notifications_muted'],
       )!,
+      listId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}list_id'],
+      )!,
+      isPinned: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_pinned'],
+      )!,
     );
   }
 
@@ -1372,6 +1891,8 @@ class CachedChat extends DataClass implements Insertable<CachedChat> {
   final int? avatarFileId;
   final String? lastMessagePreview;
   final bool notificationsMuted;
+  final int listId;
+  final bool isPinned;
   const CachedChat({
     required this.id,
     required this.isGroup,
@@ -1387,6 +1908,8 @@ class CachedChat extends DataClass implements Insertable<CachedChat> {
     this.avatarFileId,
     this.lastMessagePreview,
     required this.notificationsMuted,
+    required this.listId,
+    required this.isPinned,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1409,6 +1932,8 @@ class CachedChat extends DataClass implements Insertable<CachedChat> {
       map['last_message_preview'] = Variable<String>(lastMessagePreview);
     }
     map['notifications_muted'] = Variable<bool>(notificationsMuted);
+    map['list_id'] = Variable<int>(listId);
+    map['is_pinned'] = Variable<bool>(isPinned);
     return map;
   }
 
@@ -1432,6 +1957,8 @@ class CachedChat extends DataClass implements Insertable<CachedChat> {
           ? const Value.absent()
           : Value(lastMessagePreview),
       notificationsMuted: Value(notificationsMuted),
+      listId: Value(listId),
+      isPinned: Value(isPinned),
     );
   }
 
@@ -1457,6 +1984,8 @@ class CachedChat extends DataClass implements Insertable<CachedChat> {
         json['lastMessagePreview'],
       ),
       notificationsMuted: serializer.fromJson<bool>(json['notificationsMuted']),
+      listId: serializer.fromJson<int>(json['listId']),
+      isPinned: serializer.fromJson<bool>(json['isPinned']),
     );
   }
   @override
@@ -1477,6 +2006,8 @@ class CachedChat extends DataClass implements Insertable<CachedChat> {
       'avatarFileId': serializer.toJson<int?>(avatarFileId),
       'lastMessagePreview': serializer.toJson<String?>(lastMessagePreview),
       'notificationsMuted': serializer.toJson<bool>(notificationsMuted),
+      'listId': serializer.toJson<int>(listId),
+      'isPinned': serializer.toJson<bool>(isPinned),
     };
   }
 
@@ -1495,6 +2026,8 @@ class CachedChat extends DataClass implements Insertable<CachedChat> {
     Value<int?> avatarFileId = const Value.absent(),
     Value<String?> lastMessagePreview = const Value.absent(),
     bool? notificationsMuted,
+    int? listId,
+    bool? isPinned,
   }) => CachedChat(
     id: id ?? this.id,
     isGroup: isGroup ?? this.isGroup,
@@ -1512,6 +2045,8 @@ class CachedChat extends DataClass implements Insertable<CachedChat> {
         ? lastMessagePreview.value
         : this.lastMessagePreview,
     notificationsMuted: notificationsMuted ?? this.notificationsMuted,
+    listId: listId ?? this.listId,
+    isPinned: isPinned ?? this.isPinned,
   );
   CachedChat copyWithCompanion(CachedChatsCompanion data) {
     return CachedChat(
@@ -1547,6 +2082,8 @@ class CachedChat extends DataClass implements Insertable<CachedChat> {
       notificationsMuted: data.notificationsMuted.present
           ? data.notificationsMuted.value
           : this.notificationsMuted,
+      listId: data.listId.present ? data.listId.value : this.listId,
+      isPinned: data.isPinned.present ? data.isPinned.value : this.isPinned,
     );
   }
 
@@ -1566,7 +2103,9 @@ class CachedChat extends DataClass implements Insertable<CachedChat> {
           ..write('memberCount: $memberCount, ')
           ..write('avatarFileId: $avatarFileId, ')
           ..write('lastMessagePreview: $lastMessagePreview, ')
-          ..write('notificationsMuted: $notificationsMuted')
+          ..write('notificationsMuted: $notificationsMuted, ')
+          ..write('listId: $listId, ')
+          ..write('isPinned: $isPinned')
           ..write(')'))
         .toString();
   }
@@ -1587,6 +2126,8 @@ class CachedChat extends DataClass implements Insertable<CachedChat> {
     avatarFileId,
     lastMessagePreview,
     notificationsMuted,
+    listId,
+    isPinned,
   );
   @override
   bool operator ==(Object other) =>
@@ -1605,7 +2146,9 @@ class CachedChat extends DataClass implements Insertable<CachedChat> {
           other.memberCount == this.memberCount &&
           other.avatarFileId == this.avatarFileId &&
           other.lastMessagePreview == this.lastMessagePreview &&
-          other.notificationsMuted == this.notificationsMuted);
+          other.notificationsMuted == this.notificationsMuted &&
+          other.listId == this.listId &&
+          other.isPinned == this.isPinned);
 }
 
 class CachedChatsCompanion extends UpdateCompanion<CachedChat> {
@@ -1623,6 +2166,8 @@ class CachedChatsCompanion extends UpdateCompanion<CachedChat> {
   final Value<int?> avatarFileId;
   final Value<String?> lastMessagePreview;
   final Value<bool> notificationsMuted;
+  final Value<int> listId;
+  final Value<bool> isPinned;
   const CachedChatsCompanion({
     this.id = const Value.absent(),
     this.isGroup = const Value.absent(),
@@ -1638,6 +2183,8 @@ class CachedChatsCompanion extends UpdateCompanion<CachedChat> {
     this.avatarFileId = const Value.absent(),
     this.lastMessagePreview = const Value.absent(),
     this.notificationsMuted = const Value.absent(),
+    this.listId = const Value.absent(),
+    this.isPinned = const Value.absent(),
   });
   CachedChatsCompanion.insert({
     this.id = const Value.absent(),
@@ -1654,6 +2201,8 @@ class CachedChatsCompanion extends UpdateCompanion<CachedChat> {
     this.avatarFileId = const Value.absent(),
     this.lastMessagePreview = const Value.absent(),
     this.notificationsMuted = const Value.absent(),
+    this.listId = const Value.absent(),
+    this.isPinned = const Value.absent(),
   }) : peerUserId = Value(peerUserId),
        title = Value(title),
        updatedAt = Value(updatedAt);
@@ -1672,6 +2221,8 @@ class CachedChatsCompanion extends UpdateCompanion<CachedChat> {
     Expression<int>? avatarFileId,
     Expression<String>? lastMessagePreview,
     Expression<bool>? notificationsMuted,
+    Expression<int>? listId,
+    Expression<bool>? isPinned,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -1689,6 +2240,8 @@ class CachedChatsCompanion extends UpdateCompanion<CachedChat> {
       if (lastMessagePreview != null)
         'last_message_preview': lastMessagePreview,
       if (notificationsMuted != null) 'notifications_muted': notificationsMuted,
+      if (listId != null) 'list_id': listId,
+      if (isPinned != null) 'is_pinned': isPinned,
     });
   }
 
@@ -1707,6 +2260,8 @@ class CachedChatsCompanion extends UpdateCompanion<CachedChat> {
     Value<int?>? avatarFileId,
     Value<String?>? lastMessagePreview,
     Value<bool>? notificationsMuted,
+    Value<int>? listId,
+    Value<bool>? isPinned,
   }) {
     return CachedChatsCompanion(
       id: id ?? this.id,
@@ -1723,6 +2278,8 @@ class CachedChatsCompanion extends UpdateCompanion<CachedChat> {
       avatarFileId: avatarFileId ?? this.avatarFileId,
       lastMessagePreview: lastMessagePreview ?? this.lastMessagePreview,
       notificationsMuted: notificationsMuted ?? this.notificationsMuted,
+      listId: listId ?? this.listId,
+      isPinned: isPinned ?? this.isPinned,
     );
   }
 
@@ -1771,6 +2328,12 @@ class CachedChatsCompanion extends UpdateCompanion<CachedChat> {
     if (notificationsMuted.present) {
       map['notifications_muted'] = Variable<bool>(notificationsMuted.value);
     }
+    if (listId.present) {
+      map['list_id'] = Variable<int>(listId.value);
+    }
+    if (isPinned.present) {
+      map['is_pinned'] = Variable<bool>(isPinned.value);
+    }
     return map;
   }
 
@@ -1790,7 +2353,9 @@ class CachedChatsCompanion extends UpdateCompanion<CachedChat> {
           ..write('memberCount: $memberCount, ')
           ..write('avatarFileId: $avatarFileId, ')
           ..write('lastMessagePreview: $lastMessagePreview, ')
-          ..write('notificationsMuted: $notificationsMuted')
+          ..write('notificationsMuted: $notificationsMuted, ')
+          ..write('listId: $listId, ')
+          ..write('isPinned: $isPinned')
           ..write(')'))
         .toString();
   }
@@ -2462,6 +3027,15 @@ typedef $$CachedMessagesTableCreateCompanionBuilder =
       Value<bool> forwarded,
       Value<int> forwardedFromMessageId,
       Value<String?> attachmentsJson,
+      Value<int> msgType,
+      Value<String?> extraJson,
+      Value<String?> codeLang,
+      Value<String?> codeText,
+      Value<String?> locationLatitude,
+      Value<String?> locationLongitude,
+      Value<String?> locationDescription,
+      Value<String?> replyMarkupJson,
+      Value<String?> pollJson,
     });
 typedef $$CachedMessagesTableUpdateCompanionBuilder =
     CachedMessagesCompanion Function({
@@ -2477,6 +3051,15 @@ typedef $$CachedMessagesTableUpdateCompanionBuilder =
       Value<bool> forwarded,
       Value<int> forwardedFromMessageId,
       Value<String?> attachmentsJson,
+      Value<int> msgType,
+      Value<String?> extraJson,
+      Value<String?> codeLang,
+      Value<String?> codeText,
+      Value<String?> locationLatitude,
+      Value<String?> locationLongitude,
+      Value<String?> locationDescription,
+      Value<String?> replyMarkupJson,
+      Value<String?> pollJson,
     });
 
 class $$CachedMessagesTableFilterComposer
@@ -2545,6 +3128,51 @@ class $$CachedMessagesTableFilterComposer
 
   ColumnFilters<String> get attachmentsJson => $composableBuilder(
     column: $table.attachmentsJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get msgType => $composableBuilder(
+    column: $table.msgType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get extraJson => $composableBuilder(
+    column: $table.extraJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get codeLang => $composableBuilder(
+    column: $table.codeLang,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get codeText => $composableBuilder(
+    column: $table.codeText,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get locationLatitude => $composableBuilder(
+    column: $table.locationLatitude,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get locationLongitude => $composableBuilder(
+    column: $table.locationLongitude,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get locationDescription => $composableBuilder(
+    column: $table.locationDescription,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get replyMarkupJson => $composableBuilder(
+    column: $table.replyMarkupJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pollJson => $composableBuilder(
+    column: $table.pollJson,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -2617,6 +3245,51 @@ class $$CachedMessagesTableOrderingComposer
     column: $table.attachmentsJson,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get msgType => $composableBuilder(
+    column: $table.msgType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get extraJson => $composableBuilder(
+    column: $table.extraJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get codeLang => $composableBuilder(
+    column: $table.codeLang,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get codeText => $composableBuilder(
+    column: $table.codeText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get locationLatitude => $composableBuilder(
+    column: $table.locationLatitude,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get locationLongitude => $composableBuilder(
+    column: $table.locationLongitude,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get locationDescription => $composableBuilder(
+    column: $table.locationDescription,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get replyMarkupJson => $composableBuilder(
+    column: $table.replyMarkupJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pollJson => $composableBuilder(
+    column: $table.pollJson,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$CachedMessagesTableAnnotationComposer
@@ -2677,6 +3350,41 @@ class $$CachedMessagesTableAnnotationComposer
     column: $table.attachmentsJson,
     builder: (column) => column,
   );
+
+  GeneratedColumn<int> get msgType =>
+      $composableBuilder(column: $table.msgType, builder: (column) => column);
+
+  GeneratedColumn<String> get extraJson =>
+      $composableBuilder(column: $table.extraJson, builder: (column) => column);
+
+  GeneratedColumn<String> get codeLang =>
+      $composableBuilder(column: $table.codeLang, builder: (column) => column);
+
+  GeneratedColumn<String> get codeText =>
+      $composableBuilder(column: $table.codeText, builder: (column) => column);
+
+  GeneratedColumn<String> get locationLatitude => $composableBuilder(
+    column: $table.locationLatitude,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get locationLongitude => $composableBuilder(
+    column: $table.locationLongitude,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get locationDescription => $composableBuilder(
+    column: $table.locationDescription,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get replyMarkupJson => $composableBuilder(
+    column: $table.replyMarkupJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get pollJson =>
+      $composableBuilder(column: $table.pollJson, builder: (column) => column);
 }
 
 class $$CachedMessagesTableTableManager
@@ -2724,6 +3432,15 @@ class $$CachedMessagesTableTableManager
                 Value<bool> forwarded = const Value.absent(),
                 Value<int> forwardedFromMessageId = const Value.absent(),
                 Value<String?> attachmentsJson = const Value.absent(),
+                Value<int> msgType = const Value.absent(),
+                Value<String?> extraJson = const Value.absent(),
+                Value<String?> codeLang = const Value.absent(),
+                Value<String?> codeText = const Value.absent(),
+                Value<String?> locationLatitude = const Value.absent(),
+                Value<String?> locationLongitude = const Value.absent(),
+                Value<String?> locationDescription = const Value.absent(),
+                Value<String?> replyMarkupJson = const Value.absent(),
+                Value<String?> pollJson = const Value.absent(),
               }) => CachedMessagesCompanion(
                 id: id,
                 isGroupChat: isGroupChat,
@@ -2737,6 +3454,15 @@ class $$CachedMessagesTableTableManager
                 forwarded: forwarded,
                 forwardedFromMessageId: forwardedFromMessageId,
                 attachmentsJson: attachmentsJson,
+                msgType: msgType,
+                extraJson: extraJson,
+                codeLang: codeLang,
+                codeText: codeText,
+                locationLatitude: locationLatitude,
+                locationLongitude: locationLongitude,
+                locationDescription: locationDescription,
+                replyMarkupJson: replyMarkupJson,
+                pollJson: pollJson,
               ),
           createCompanionCallback:
               ({
@@ -2752,6 +3478,15 @@ class $$CachedMessagesTableTableManager
                 Value<bool> forwarded = const Value.absent(),
                 Value<int> forwardedFromMessageId = const Value.absent(),
                 Value<String?> attachmentsJson = const Value.absent(),
+                Value<int> msgType = const Value.absent(),
+                Value<String?> extraJson = const Value.absent(),
+                Value<String?> codeLang = const Value.absent(),
+                Value<String?> codeText = const Value.absent(),
+                Value<String?> locationLatitude = const Value.absent(),
+                Value<String?> locationLongitude = const Value.absent(),
+                Value<String?> locationDescription = const Value.absent(),
+                Value<String?> replyMarkupJson = const Value.absent(),
+                Value<String?> pollJson = const Value.absent(),
               }) => CachedMessagesCompanion.insert(
                 id: id,
                 isGroupChat: isGroupChat,
@@ -2765,6 +3500,15 @@ class $$CachedMessagesTableTableManager
                 forwarded: forwarded,
                 forwardedFromMessageId: forwardedFromMessageId,
                 attachmentsJson: attachmentsJson,
+                msgType: msgType,
+                extraJson: extraJson,
+                codeLang: codeLang,
+                codeText: codeText,
+                locationLatitude: locationLatitude,
+                locationLongitude: locationLongitude,
+                locationDescription: locationDescription,
+                replyMarkupJson: replyMarkupJson,
+                pollJson: pollJson,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
@@ -2807,6 +3551,8 @@ typedef $$CachedChatsTableCreateCompanionBuilder =
       Value<int?> avatarFileId,
       Value<String?> lastMessagePreview,
       Value<bool> notificationsMuted,
+      Value<int> listId,
+      Value<bool> isPinned,
     });
 typedef $$CachedChatsTableUpdateCompanionBuilder =
     CachedChatsCompanion Function({
@@ -2824,6 +3570,8 @@ typedef $$CachedChatsTableUpdateCompanionBuilder =
       Value<int?> avatarFileId,
       Value<String?> lastMessagePreview,
       Value<bool> notificationsMuted,
+      Value<int> listId,
+      Value<bool> isPinned,
     });
 
 class $$CachedChatsTableFilterComposer
@@ -2902,6 +3650,16 @@ class $$CachedChatsTableFilterComposer
 
   ColumnFilters<bool> get notificationsMuted => $composableBuilder(
     column: $table.notificationsMuted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get listId => $composableBuilder(
+    column: $table.listId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isPinned => $composableBuilder(
+    column: $table.isPinned,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -2984,6 +3742,16 @@ class $$CachedChatsTableOrderingComposer
     column: $table.notificationsMuted,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get listId => $composableBuilder(
+    column: $table.listId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isPinned => $composableBuilder(
+    column: $table.isPinned,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$CachedChatsTableAnnotationComposer
@@ -3054,6 +3822,12 @@ class $$CachedChatsTableAnnotationComposer
     column: $table.notificationsMuted,
     builder: (column) => column,
   );
+
+  GeneratedColumn<int> get listId =>
+      $composableBuilder(column: $table.listId, builder: (column) => column);
+
+  GeneratedColumn<bool> get isPinned =>
+      $composableBuilder(column: $table.isPinned, builder: (column) => column);
 }
 
 class $$CachedChatsTableTableManager
@@ -3101,6 +3875,8 @@ class $$CachedChatsTableTableManager
                 Value<int?> avatarFileId = const Value.absent(),
                 Value<String?> lastMessagePreview = const Value.absent(),
                 Value<bool> notificationsMuted = const Value.absent(),
+                Value<int> listId = const Value.absent(),
+                Value<bool> isPinned = const Value.absent(),
               }) => CachedChatsCompanion(
                 id: id,
                 isGroup: isGroup,
@@ -3116,6 +3892,8 @@ class $$CachedChatsTableTableManager
                 avatarFileId: avatarFileId,
                 lastMessagePreview: lastMessagePreview,
                 notificationsMuted: notificationsMuted,
+                listId: listId,
+                isPinned: isPinned,
               ),
           createCompanionCallback:
               ({
@@ -3133,6 +3911,8 @@ class $$CachedChatsTableTableManager
                 Value<int?> avatarFileId = const Value.absent(),
                 Value<String?> lastMessagePreview = const Value.absent(),
                 Value<bool> notificationsMuted = const Value.absent(),
+                Value<int> listId = const Value.absent(),
+                Value<bool> isPinned = const Value.absent(),
               }) => CachedChatsCompanion.insert(
                 id: id,
                 isGroup: isGroup,
@@ -3148,6 +3928,8 @@ class $$CachedChatsTableTableManager
                 avatarFileId: avatarFileId,
                 lastMessagePreview: lastMessagePreview,
                 notificationsMuted: notificationsMuted,
+                listId: listId,
+                isPinned: isPinned,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

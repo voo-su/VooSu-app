@@ -129,9 +129,15 @@ class ChatContentHeader extends StatelessWidget {
     final isOnline = chat.isGroup
         ? null
         : (onlineService.isOnline(chat.peerUserId) ?? false);
+    final typing = chatState.typing;
+    final myId = currentUserId ?? 0;
     final isTyping =
-        chatState.typingUserId != null &&
-        chatState.typingUserId == chat.peerUserId;
+        typing != null &&
+        typing.userId != myId &&
+        ((!chat.isGroup && typing.userId == chat.peerUserId) ||
+            (chat.isGroup &&
+                typing.peerType == 2 &&
+                typing.peerId == chat.peerGroupId));
     final title = ChatListItem.title(chat);
 
     final subtitle = chat.isGroup
@@ -158,7 +164,7 @@ class ChatContentHeader extends StatelessWidget {
               ),
             Expanded(
               child: InkWell(
-                onTap: () => _onHeaderTap(context, chat),
+                onTap: () => openChatOverview(context, chat),
                 borderRadius: BorderRadius.circular(8),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4),
@@ -345,7 +351,7 @@ class ChatContentHeader extends StatelessWidget {
     }
   }
 
-  static void _onHeaderTap(BuildContext context, Chat chat) {
+  static void openChatOverview(BuildContext context, Chat chat) {
     final isMobile = Breakpoints.isMobile(context);
     if (chat.isGroup) {
       final chatBloc = context.read<ChatBloc>();
@@ -375,11 +381,15 @@ class ChatContentHeader extends StatelessWidget {
         );
       }
     } else {
-      _showUserCard(context, chat, isMobile);
+      showPrivateChatProfile(context, chat, isMobile);
     }
   }
 
-  static void _showUserCard(BuildContext context, Chat chat, bool isMobile) {
+  static void showPrivateChatProfile(
+    BuildContext context,
+    Chat chat,
+    bool isMobile,
+  ) {
     final content = _buildUserCardContent(context, chat);
     if (isMobile) {
       Navigator.of(context).push(

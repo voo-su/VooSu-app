@@ -25,6 +25,10 @@ abstract class UserLocalDataSource {
   Future<void> clearSyncState();
 
   Future<void> clearAuthData();
+
+  bool get notificationSoundEnabled;
+
+  Future<void> setNotificationSoundEnabled(bool enabled);
 }
 
 class UserLocalDataSourceImpl implements UserLocalDataSource {
@@ -38,7 +42,9 @@ class UserLocalDataSourceImpl implements UserLocalDataSource {
   static const _keyUserBirthday = 'voosu_user_birthday';
   static const _keyUserAbout = 'voosu_user_about';
   static const _keyUserAvatarFileId = 'voosu_user_avatar_file_id';
+  static const _keyUserMessagePrivacy = 'voosu_user_message_privacy';
   static const _keyThemeMode = 'voosu_theme_mode';
+  static const _keyNotificationSoundEnabled = 'voosu_notification_sound_enabled';
   static const _syncPtsKey = 'voosu_pts_key';
   static const _syncDateKey = 'voosu_date_key';
 
@@ -75,6 +81,7 @@ class UserLocalDataSourceImpl implements UserLocalDataSource {
     final birthday = _prefs!.getString(_keyUserBirthday) ?? '';
     final about = _prefs!.getString(_keyUserAbout) ?? '';
     final avatarFileId = _prefs!.getInt(_keyUserAvatarFileId);
+    final messagePrivacy = _prefs!.getInt(_keyUserMessagePrivacy) ?? 0;
 
     if (id != null && username != null && name != null) {
       _user = User(
@@ -86,6 +93,7 @@ class UserLocalDataSourceImpl implements UserLocalDataSource {
         birthday: birthday,
         about: about,
         avatarFileId: avatarFileId,
+        messagePrivacy: messagePrivacy,
       );
     } else {
       _user = null;
@@ -116,6 +124,7 @@ class UserLocalDataSourceImpl implements UserLocalDataSource {
     } else {
       _prefs?.remove(_keyUserAvatarFileId);
     }
+    _prefs?.setInt(_keyUserMessagePrivacy, user.messagePrivacy);
   }
 
   @override
@@ -133,6 +142,7 @@ class UserLocalDataSourceImpl implements UserLocalDataSource {
     _prefs?.remove(_keyUserBirthday);
     _prefs?.remove(_keyUserAbout);
     _prefs?.remove(_keyUserAvatarFileId);
+    _prefs?.remove(_keyUserMessagePrivacy);
   }
 
   @override
@@ -195,5 +205,15 @@ class UserLocalDataSourceImpl implements UserLocalDataSource {
     await _db?.clearCache();
     _prefs ??= await SharedPreferences.getInstance();
     await _prefs!.clear();
+  }
+
+  @override
+  bool get notificationSoundEnabled =>
+      _prefs?.getBool(_keyNotificationSoundEnabled) ?? true;
+
+  @override
+  Future<void> setNotificationSoundEnabled(bool enabled) async {
+    _prefs ??= await SharedPreferences.getInstance();
+    await _prefs!.setBool(_keyNotificationSoundEnabled, enabled);
   }
 }

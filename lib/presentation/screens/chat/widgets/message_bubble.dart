@@ -1,12 +1,17 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:voosu/core/attachment_type_helper.dart';
+import 'package:voosu/core/chat_msg_type.dart';
 import 'package:voosu/core/date_formatter.dart';
 import 'package:voosu/domain/entities/chat_attachment.dart';
 import 'package:voosu/domain/entities/message.dart';
 import 'package:voosu/domain/entities/poll.dart';
 import 'package:voosu/domain/entities/reply_markup.dart';
 import 'package:voosu/presentation/screens/chat/widgets/chat_attachment_view.dart';
+import 'package:voosu/presentation/widgets/code_block_builder.dart';
 
 String _attachmentTypeLabel(ChatAttachment att) {
   int type = att.type;
@@ -48,6 +53,7 @@ class MessageBubble extends StatelessWidget {
   final VoidCallback? onDelete;
   final VoidCallback? onReply;
   final VoidCallback? onForward;
+  final VoidCallback? onAddStickerToCollection;
   final Future<void> Function(int fileId, String filename)?
   onDownloadAttachment;
   final Future<List<int>?> Function(int fileId)? onLoadAttachmentContent;
@@ -67,6 +73,7 @@ class MessageBubble extends StatelessWidget {
     this.onDelete,
     this.onReply,
     this.onForward,
+    this.onAddStickerToCollection,
     this.onDownloadAttachment,
     this.onLoadAttachmentContent,
     this.isSelectionMode = false,
@@ -89,6 +96,7 @@ class MessageBubble extends StatelessWidget {
     VoidCallback? onReply,
     VoidCallback? onForward,
     VoidCallback? onToggleSelection,
+    VoidCallback? onAddStickerToCollection,
   ) {
     final RenderBox? box = context.findRenderObject() as RenderBox?;
     if (box == null || (!box.hasSize)) {
@@ -147,6 +155,20 @@ class MessageBubble extends StatelessWidget {
         ),
       );
     }
+    if (onAddStickerToCollection != null) {
+      items.add(
+        const PopupMenuItem<String>(
+          value: 'add_sticker',
+          child: Row(
+            children: [
+              Icon(Icons.bookmark_add_outlined, size: 20),
+              SizedBox(width: 8),
+              Text('В мои стикеры'),
+            ],
+          ),
+        ),
+      );
+    }
     if (onDelete != null) {
       items.add(
         const PopupMenuItem<String>(
@@ -193,6 +215,10 @@ class MessageBubble extends StatelessWidget {
         onForward?.call();
       }
 
+      if (value == 'add_sticker') {
+        onAddStickerToCollection?.call();
+      }
+
       if (value == 'delete') {
         onDelete?.call();
       }
@@ -207,6 +233,23 @@ class MessageBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final timeStr = ChatMessageTime.format(message.createdAt);
+    final codeBody = message.codeText?.trim() ?? '';
+    final isCode = message.msgType == ChatMsgType.code;
+    final isLoc = message.msgType == ChatMsgType.location;
+    final isLegacyForward = message.msgType == ChatMsgType.forward;
+    final isContactCard = message.msgType == ChatMsgType.card;
+    final isMixed = message.msgType == ChatMsgType.mixed;
+    final hasLocCoords =
+        (message.locationLatitude?.trim().isNotEmpty ?? false) &&
+        (message.locationLongitude?.trim().isNotEmpty ?? false);
+    final hideTypeCaption =
+        (isCode && codeBody.isNotEmpty) ||
+        (isLoc && hasLocCoords) ||
+        isContactCard ||
+        isLegacyForward ||
+        isMixed;
+    final showCaption =
+        message.content.trim().isNotEmpty && !hideTypeCaption;
     final isDark = theme.brightness == Brightness.dark;
 
     final sentBubbleColor = isDark
@@ -228,15 +271,23 @@ class MessageBubble extends StatelessWidget {
     final onBubbleTap = showCheckbox && onToggleSelection != null
         ? onToggleSelection
         : null;
+    final stickerSave = message.canSaveAsMySticker ? onAddStickerToCollection : null;
     final showContextMenu =
         !isSelectionMode &&
         (onReply != null ||
             onForward != null ||
             onDelete != null ||
-            onToggleSelection != null);
+            onToggleSelection != null ||
+            stickerSave != null ||
+            (message.plainCopyText != null &&
+                message.plainCopyText!.trim().isNotEmpty));
 
     final useNarrowWidth =
         replyToMessage != null ||
+        message.msgType == ChatMsgType.code ||
+        isContactCard ||
+        isLegacyForward ||
+        isMixed ||
         (message.attachments.isNotEmpty &&
             message.attachments.every((a) => a.type == AttachmentType.audio));
     return LayoutBuilder(
@@ -268,11 +319,12 @@ class MessageBubble extends StatelessWidget {
                     ? () => _showContextMenu(
                         context,
                         null,
-                        message.content,
+                        message.plainCopyText,
                         onDelete,
                         onReply,
                         onForward,
                         onToggleSelection,
+                        stickerSave,
                       )
                     : (isFromMe && onToggleSelection != null
                           ? onToggleSelection
@@ -281,11 +333,12 @@ class MessageBubble extends StatelessWidget {
                     ? (details) => _showContextMenu(
                         context,
                         details.globalPosition,
-                        message.content,
+                        message.plainCopyText,
                         onDelete,
                         onReply,
                         onForward,
                         onToggleSelection,
+                        stickerSave,
                       )
                     : null,
                 child: Container(
@@ -315,7 +368,7 @@ class MessageBubble extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      if (message.forwarded) ...[
+                      if (message.forwarded && !isLegacyForward) ...[
                         Padding(
                           padding: const EdgeInsets.only(bottom: 6),
                           child: Row(
@@ -438,6 +491,38 @@ class MessageBubble extends StatelessWidget {
                           ),
                         ),
                       ],
+                      if (isLegacyForward) ...[
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: _LegacyForwardStrip(
+                            extraJson: message.extraJson,
+                            textColor: textColor,
+                            alignEnd: isFromMe,
+                            theme: theme,
+                          ),
+                        ),
+                      ],
+                      if (isContactCard) ...[
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: _ContactCardStrip(
+                            title: message.content.trim().isEmpty
+                                ? 'Контактная карточка'
+                                : message.content.trim(),
+                            extraJson: message.extraJson,
+                            textColor: textColor,
+                          ),
+                        ),
+                      ],
+                      if (isMixed) ...[
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: _MixedMessageContent(
+                            extraJson: message.extraJson,
+                            textColor: textColor,
+                          ),
+                        ),
+                      ],
                       if (message.attachments.isNotEmpty) ...[
                         const SizedBox(height: 4),
                         ...message.attachments.map(
@@ -451,12 +536,34 @@ class MessageBubble extends StatelessWidget {
                           ),
                         ),
                       ],
+                      if (isCode && codeBody.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: ChatCodeSnippet(
+                            code: codeBody,
+                            language: message.codeLang ?? 'plaintext',
+                          ),
+                        ),
+                      ],
+                      if (isLoc && hasLocCoords) ...[
+                        const SizedBox(height: 4),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: _MessageLocationCard(
+                            textColor: textColor,
+                            latitude: message.locationLatitude!,
+                            longitude: message.locationLongitude!,
+                            description: message.locationDescription ?? '',
+                          ),
+                        ),
+                      ],
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         mainAxisAlignment: MainAxisAlignment.end,
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          if (message.content.trim().isNotEmpty)
+                          if (showCaption)
                             Flexible(
                               child: SelectableText(
                                 message.content,
@@ -467,8 +574,7 @@ class MessageBubble extends StatelessWidget {
                                 ),
                               ),
                             ),
-                          if (message.content.trim().isNotEmpty)
-                            const SizedBox(width: 6),
+                          if (showCaption) const SizedBox(width: 6),
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.center,
@@ -522,6 +628,84 @@ class MessageBubble extends StatelessWidget {
           child: row,
         );
       },
+    );
+  }
+}
+
+class _MessageLocationCard extends StatelessWidget {
+  const _MessageLocationCard({
+    required this.textColor,
+    required this.latitude,
+    required this.longitude,
+    required this.description,
+  });
+
+  final Color textColor;
+  final String latitude;
+  final String longitude;
+  final String description;
+
+  Future<void> _openMaps() async {
+    final uri = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent('$latitude,$longitude')}',
+    );
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: _openMaps,
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.location_on_rounded, color: textColor, size: 22),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Местоположение',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: textColor.withValues(alpha: 0.85),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (description.trim().isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        description.trim(),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: textColor,
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 4),
+                    Text(
+                      'Открыть на карте',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: textColor.withValues(alpha: 0.75),
+                        decoration: TextDecoration.underline,
+                        decorationColor: textColor.withValues(alpha: 0.5),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -729,6 +913,274 @@ class _PollWidget extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+Map<String, dynamic>? _parseMessageExtraMap(String? raw) {
+  if (raw == null || raw.isEmpty) {
+    return null;
+  }
+  try {
+    final d = jsonDecode(raw);
+    if (d is Map<String, dynamic>) {
+      return d;
+    }
+    if (d is Map) {
+      return d.map((k, v) => MapEntry(k.toString(), v));
+    }
+  } catch (_) {}
+  return null;
+}
+
+class _LegacyForwardStrip extends StatelessWidget {
+  const _LegacyForwardStrip({
+    required this.extraJson,
+    required this.textColor,
+    required this.alignEnd,
+    required this.theme,
+  });
+
+  final String? extraJson;
+  final Color textColor;
+  final bool alignEnd;
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final m = _parseMessageExtraMap(extraJson);
+    int? n;
+    final ids = m?['msg_ids'];
+    if (ids is List) {
+      n = ids.length;
+    }
+    final baseStyle = theme.textTheme.bodySmall?.copyWith(
+      fontSize: 13,
+      color: textColor.withValues(alpha: 0.92),
+    );
+    final secondary = theme.textTheme.labelSmall?.copyWith(
+      fontSize: 12,
+      color: textColor.withValues(alpha: 0.75),
+    );
+    return Align(
+      alignment: alignEnd ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 320),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHighest.withValues(
+            alpha: 0.55,
+          ),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text.rich(
+          TextSpan(
+            style: baseStyle,
+            children: [
+              TextSpan(
+                text: 'Пересланное сообщение',
+                style: baseStyle?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              if (n != null && n > 0)
+                TextSpan(
+                  text: ' ($n)',
+                  style: secondary,
+                ),
+            ],
+          ),
+          textAlign: alignEnd ? TextAlign.right : TextAlign.left,
+        ),
+      ),
+    );
+  }
+}
+
+class _ContactCardStrip extends StatelessWidget {
+  const _ContactCardStrip({
+    required this.title,
+    required this.extraJson,
+    required this.textColor,
+  });
+
+  final String title;
+  final String? extraJson;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final m = _parseMessageExtraMap(extraJson);
+    final usernameRaw = m != null ? (m['username'] ?? m['user_name']) : null;
+    final username = usernameRaw?.toString().trim() ?? '';
+    final userIdRaw = m?['user_id'] ?? m?['userId'];
+    final userIdStr = userIdRaw != null ? userIdRaw.toString() : '';
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 280),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        decoration: BoxDecoration(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.06)
+              : Colors.black.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: theme.dividerColor.withValues(alpha: 0.45),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              title,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+                color: textColor,
+              ),
+            ),
+            if (username.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                '@$username',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontSize: 13,
+                  color: textColor.withValues(alpha: 0.78),
+                ),
+              ),
+            ],
+            if (userIdStr.isNotEmpty) ...[
+              const SizedBox(height: 2),
+              Text(
+                'ID: $userIdStr',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  fontSize: 12,
+                  color: textColor.withValues(alpha: 0.62),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+Widget _mixedImageLoadError(ThemeData theme, Color textColor) {
+  return Text(
+    'Не удалось загрузить изображение',
+    style: theme.textTheme.bodySmall?.copyWith(
+      color: textColor.withValues(alpha: 0.7),
+    ),
+  );
+}
+
+class _MixedMessageContent extends StatelessWidget {
+  const _MixedMessageContent({
+    required this.extraJson,
+    required this.textColor,
+  });
+
+  static const double _maxImageWidth = 300;
+
+  final String? extraJson;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final m = _parseMessageExtraMap(extraJson);
+    final raw = m?['items'];
+    final isDark = theme.brightness == Brightness.dark;
+    final boxBg = isDark
+        ? Colors.white.withValues(alpha: 0.04)
+        : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.45);
+
+    if (raw is! List || raw.isEmpty) {
+      return Text(
+        'Сообщение',
+        style: theme.textTheme.bodyMedium?.copyWith(color: textColor),
+      );
+    }
+
+    final children = <Widget>[];
+    for (final e in raw) {
+      if (e is! Map) {
+        continue;
+      }
+      final map = Map<String, dynamic>.from(e);
+      final type = (map['type'] as num?)?.toInt() ?? 0;
+      final c = map['content']?.toString() ?? '';
+      if (type == 1 && c.isNotEmpty) {
+        children.add(
+          SelectableText(
+            c,
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: textColor,
+              fontSize: 15,
+              height: 1.5,
+            ),
+          ),
+        );
+      } else if (type == 3 && c.isNotEmpty) {
+        children.add(
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: _maxImageWidth),
+                child: Image.network(
+                  c,
+                  fit: BoxFit.fitWidth,
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) {
+                      return child;
+                    }
+                    return SizedBox(
+                      height: 120,
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          value: loadingProgress.expectedTotalBytes != null
+                              ? loadingProgress.cumulativeBytesLoaded /
+                                  loadingProgress.expectedTotalBytes!
+                              : null,
+                        ),
+                      ),
+                    );
+                  },
+                  errorBuilder: (context, error, stackTrace) {
+                    return _mixedImageLoadError(theme, textColor);
+                  },
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+    }
+
+    if (children.isEmpty) {
+      return Text(
+        'Сообщение',
+        style: theme.textTheme.bodyMedium?.copyWith(color: textColor),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+      decoration: BoxDecoration(
+        color: boxBg,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: children,
       ),
     );
   }

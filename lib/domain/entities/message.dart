@@ -1,3 +1,5 @@
+import 'package:voosu/core/attachment_type_helper.dart';
+import 'package:voosu/core/chat_msg_type.dart';
 import 'package:voosu/domain/entities/chat_attachment.dart';
 import 'package:voosu/domain/entities/poll.dart';
 import 'package:voosu/domain/entities/reply_markup.dart';
@@ -8,6 +10,12 @@ class Message {
   final int peerUserId;
   final int peerGroupId;
   final int fromPeerUserId;
+  final int msgType;
+  final String? codeLang;
+  final String? codeText;
+  final String? locationLatitude;
+  final String? locationLongitude;
+  final String? locationDescription;
   final String content;
   final DateTime createdAt;
   final bool isRead;
@@ -19,6 +27,7 @@ class Message {
   final List<ChatAttachment> attachments;
   final ReplyMarkup? replyMarkup;
   final Poll? poll;
+  final String? extraJson;
 
   Message({
     required this.id,
@@ -26,6 +35,12 @@ class Message {
     this.peerUserId = 0,
     this.peerGroupId = 0,
     required this.fromPeerUserId,
+    this.msgType = 0,
+    this.codeLang,
+    this.codeText,
+    this.locationLatitude,
+    this.locationLongitude,
+    this.locationDescription,
     required this.content,
     required this.createdAt,
     this.isRead = false,
@@ -37,13 +52,35 @@ class Message {
     this.attachments = const [],
     this.replyMarkup,
     this.poll,
+    this.extraJson,
   });
 
   int get senderId => fromPeerUserId;
 
+  String? get plainCopyText {
+    if (msgType == 2 && codeText != null && codeText!.trim().isNotEmpty) {
+      return codeText!.trim();
+    }
+
+    final t = content.trim();
+    return t.isNotEmpty ? t : null;
+  }
+
   bool get isSystemMessage => fromPeerUserId == 0;
 
+  bool get usesSystemRowLayout => msgType >= ChatMsgType.sysMin;
+
   bool get hasReply => replyToMessageId > 0;
+  
+  bool get canSaveAsMySticker {
+    if (msgType != ChatMsgType.image) {
+      return false;
+    }
+    if (attachments.length != 1) {
+      return false;
+    }
+    return attachments.first.type == AttachmentType.image;
+  }
 
   bool isInDialog(int myUserId, int otherUserId) {
     if (isGroupChat) {
@@ -58,13 +95,19 @@ class Message {
     return isGroupChat && peerGroupId.toString() == groupId;
   }
 
-  Message copyWith({bool? isRead, Poll? poll}) {
+  Message copyWith({bool? isRead, Poll? poll, String? extraJson}) {
     return Message(
       id: id,
       isGroupChat: isGroupChat,
       peerUserId: peerUserId,
       peerGroupId: peerGroupId,
       fromPeerUserId: fromPeerUserId,
+      msgType: msgType,
+      codeLang: codeLang,
+      codeText: codeText,
+      locationLatitude: locationLatitude,
+      locationLongitude: locationLongitude,
+      locationDescription: locationDescription,
       content: content,
       createdAt: createdAt,
       isRead: isRead ?? this.isRead,
@@ -76,6 +119,7 @@ class Message {
       attachments: attachments,
       replyMarkup: replyMarkup,
       poll: poll ?? this.poll,
+      extraJson: extraJson ?? this.extraJson,
     );
   }
 }

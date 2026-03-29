@@ -18,12 +18,25 @@ class MessageMapper {
     final replyMarkup = msg.hasReplyMarkup() ? _replyMarkupFromProto(msg.replyMarkup) : null;
     final poll = msg.hasPoll() ? _pollFromProto(msg.poll) : null;
 
+    final code = msg.hasCode() ? msg.code : null;
+    final loc = msg.hasLocation() ? msg.location : null;
+
+    final extraJson = msg.hasExtraJson() && msg.extraJson.isNotEmpty
+        ? msg.extraJson
+        : null;
+
     return Message(
       id: msg.id.toInt(),
       isGroupChat: isGroup,
       peerUserId: peerUserId,
       peerGroupId: peerGroupId,
       fromPeerUserId: fromUserId,
+      msgType: msg.msgType,
+      codeLang: code?.lang,
+      codeText: code?.text,
+      locationLatitude: loc?.latitude,
+      locationLongitude: loc?.longitude,
+      locationDescription: loc?.description,
       content: msg.content,
       createdAt: DateTime.fromMillisecondsSinceEpoch(
         msg.createdAt.toInt() * 1000,
@@ -37,6 +50,7 @@ class MessageMapper {
       attachments: attachments,
       replyMarkup: replyMarkup,
       poll: poll,
+      extraJson: extraJson,
     );
   }
 
@@ -77,12 +91,14 @@ class MessageMapper {
     switch (a.whichAttachment()) {
       case chatpb.ChatAttachment_Attachment.image:
         final img = a.image;
+        final ext = img.externalUrl;
         return ChatAttachment(
           fileId: img.fileId.toInt(),
           filename: img.filename,
           mimeType: img.mimeType,
           size: img.size.toInt(),
           type: 1,
+          externalUrl: ext.isNotEmpty ? ext : null,
         );
       case chatpb.ChatAttachment_Attachment.document:
         final doc = a.document;

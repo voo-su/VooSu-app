@@ -3,9 +3,13 @@ import 'package:voosu/core/log/logs.dart';
 import 'package:voosu/data/data_sources/remote/chat_remote_datasource.dart';
 import 'package:voosu/data/db/app_database.dart';
 import 'package:voosu/domain/entities/attachment_upload.dart';
+import 'package:voosu/domain/entities/group_message_mention.dart';
+import 'package:voosu/domain/entities/mixed_send_item.dart';
 import 'package:voosu/domain/entities/chat.dart';
 import 'package:voosu/domain/entities/group_info.dart';
 import 'package:voosu/domain/entities/message.dart';
+import 'package:voosu/domain/entities/overt_group_listing.dart';
+import 'package:voosu/domain/entities/user_sticker.dart';
 import 'package:voosu/domain/repositories/chat_repository.dart';
 
 class ChatRepositoryImpl implements ChatRepository {
@@ -144,6 +148,7 @@ class ChatRepositoryImpl implements ChatRepository {
     bool forwarded = false,
     int forwardedFromMessageId = 0,
     List<AttachmentUpload>? attachments,
+    GroupMessageMention? mention,
   }) async {
     try {
       return await _remote.sendMessage(
@@ -154,11 +159,148 @@ class ChatRepositoryImpl implements ChatRepository {
         forwarded: forwarded,
         forwardedFromMessageId: forwardedFromMessageId,
         attachments: attachments,
+        mention: mention,
       );
     } catch (e) {
       if (e is Failure) rethrow;
       Logs().e('ChatRepository: неожиданная ошибка в sendMessage', e);
       throw ApiFailure('Ошибка отправки сообщения');
+    }
+  }
+
+  @override
+  Future<Message> sendMixedMessage({
+    int? peerUserId,
+    int? peerGroupId,
+    required List<MixedSendItem> items,
+    int replyToMessageId = 0,
+    GroupMessageMention? mention,
+  }) async {
+    try {
+      return await _remote.sendMixedMessage(
+        peerUserId: peerUserId,
+        peerGroupId: peerGroupId,
+        items: items,
+        replyToMessageId: replyToMessageId,
+        mention: mention,
+      );
+    } catch (e) {
+      if (e is Failure) rethrow;
+      Logs().e('ChatRepository: неожиданная ошибка в sendMixedMessage', e);
+      throw ApiFailure('Ошибка отправки сообщения');
+    }
+  }
+
+  @override
+  Future<List<UserSticker>> listMyStickers() async {
+    try {
+      return await _remote.listMyStickers();
+    } catch (e) {
+      if (e is Failure) rethrow;
+      Logs().e('ChatRepository: неожиданная ошибка в listMyStickers', e);
+      throw ApiFailure('Ошибка загрузки стикеров');
+    }
+  }
+
+  @override
+  Future<UserSticker> addStickerFromUploadedFile(int fileId) async {
+    try {
+      return await _remote.addStickerFromUploadedFile(fileId);
+    } catch (e) {
+      if (e is Failure) rethrow;
+      Logs().e('ChatRepository: неожиданная ошибка в addStickerFromUploadedFile', e);
+      throw ApiFailure('Не удалось добавить стикер');
+    }
+  }
+
+  @override
+  Future<void> deleteMyStickers(List<int> stickerIds) async {
+    try {
+      await _remote.deleteMyStickers(stickerIds);
+    } catch (e) {
+      if (e is Failure) rethrow;
+      Logs().e('ChatRepository: неожиданная ошибка в deleteMyStickers', e);
+      throw ApiFailure('Не удалось удалить стикер');
+    }
+  }
+
+  @override
+  Future<void> collectStickerFromMessage(int messageId) async {
+    try {
+      await _remote.collectStickerFromMessage(messageId);
+    } catch (e) {
+      if (e is Failure) rethrow;
+      Logs().e('ChatRepository: неожиданная ошибка в collectStickerFromMessage', e);
+      throw ApiFailure('Не удалось сохранить стикер');
+    }
+  }
+
+  @override
+  Future<Message> sendSticker({
+    int? peerUserId,
+    int? peerGroupId,
+    required int stickerId,
+    int replyToMessageId = 0,
+  }) async {
+    try {
+      return await _remote.sendSticker(
+        peerUserId: peerUserId,
+        peerGroupId: peerGroupId,
+        stickerId: stickerId,
+        replyToMessageId: replyToMessageId,
+      );
+    } catch (e) {
+      if (e is Failure) rethrow;
+      Logs().e('ChatRepository: неожиданная ошибка в sendSticker', e);
+      throw ApiFailure('Ошибка отправки стикера');
+    }
+  }
+
+  @override
+  Future<Message> sendCodeMessage({
+    int? peerUserId,
+    int? peerGroupId,
+    required String lang,
+    required String code,
+    int replyToMessageId = 0,
+  }) async {
+    try {
+      return await _remote.sendCodeMessage(
+        peerUserId: peerUserId,
+        peerGroupId: peerGroupId,
+        lang: lang,
+        code: code,
+        replyToMessageId: replyToMessageId,
+      );
+    } catch (e) {
+      if (e is Failure) rethrow;
+      Logs().e('ChatRepository: неожиданная ошибка в sendCodeMessage', e);
+      throw ApiFailure('Ошибка отправки кода');
+    }
+  }
+
+  @override
+  Future<Message> sendLocationMessage({
+    int? peerUserId,
+    int? peerGroupId,
+    required String latitude,
+    required String longitude,
+    String description = '',
+    int replyToMessageId = 0,
+  }) async {
+    try {
+      return await _remote.sendLocationMessage(
+        peerUserId: peerUserId,
+        peerGroupId: peerGroupId,
+        latitude: latitude,
+        longitude: longitude,
+        description: description,
+        replyToMessageId: replyToMessageId,
+      );
+    } catch (e) {
+      if (e is Failure) rethrow;
+      Logs().e('ChatRepository: неожиданная ошибка в sendLocationMessage', e);
+      throw ApiFailure('Ошибка отправки местоположения');
     }
   }
 
@@ -280,8 +422,8 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   @override
-  Future<void> sendTyping(int peerUserId) async {
-    await _remote.sendTyping(peerUserId);
+  Future<void> sendTyping({int? peerUserId, int? peerGroupId}) async {
+    await _remote.sendTyping(peerUserId: peerUserId, peerGroupId: peerGroupId);
   }
 
   @override
@@ -303,6 +445,68 @@ class ChatRepositoryImpl implements ChatRepository {
       if (e is Failure) rethrow;
       Logs().e('ChatRepository: ошибка в setChatNotifications', e);
       throw ApiFailure('Ошибка настройки уведомлений');
+    }
+  }
+
+  @override
+  Future<void> setChatTop({required int listId, required bool pin}) async {
+    try {
+      await _remote.setChatTop(listId: listId, pin: pin);
+    } catch (e) {
+      if (e is Failure) rethrow;
+      Logs().e('ChatRepository: ошибка в setChatTop', e);
+      throw ApiFailure('Ошибка закрепления чата');
+    }
+  }
+
+  @override
+  Future<void> leaveGroup(int groupId) async {
+    try {
+      await _remote.leaveGroup(groupId);
+      await _db?.deleteCachedChat(-groupId);
+    } catch (e) {
+      if (e is Failure) rethrow;
+      Logs().e('ChatRepository: ошибка в leaveGroup', e);
+      throw ApiFailure('Не удалось выйти из группы');
+    }
+  }
+
+  @override
+  Future<({List<OvertGroupListing> items, bool hasMore})> searchPublicGroups({
+    required String nameQuery,
+    required int page,
+  }) async {
+    try {
+      return await _remote.searchPublicGroups(nameQuery: nameQuery, page: page);
+    } catch (e) {
+      if (e is Failure) rethrow;
+      Logs().e('ChatRepository: searchPublicGroups', e);
+      throw ApiFailure('Ошибка поиска групп');
+    }
+  }
+
+  @override
+  Future<void> requestToJoinGroup(int groupId) async {
+    try {
+      await _remote.requestToJoinGroup(groupId);
+    } catch (e) {
+      if (e is Failure) rethrow;
+      Logs().e('ChatRepository: requestToJoinGroup', e);
+      throw ApiFailure('Не удалось отправить заявку');
+    }
+  }
+
+  @override
+  Future<void> clearUnread({int? peerUserId, int? peerGroupId}) async {
+    try {
+      await _remote.clearUnread(
+        peerUserId: peerUserId,
+        peerGroupId: peerGroupId,
+      );
+    } catch (e) {
+      if (e is Failure) rethrow;
+      Logs().e('ChatRepository: ошибка в clearUnread', e);
+      throw ApiFailure('Ошибка сброса непрочитанных');
     }
   }
 

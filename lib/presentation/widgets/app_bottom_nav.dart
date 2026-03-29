@@ -6,12 +6,14 @@ class AppBottomNav extends StatelessWidget {
   final NavDestination selected;
   final ValueChanged<NavDestination> onDestinationSelected;
   final Widget? trailing;
+  final Widget? uploadQueueSlot;
 
   const AppBottomNav({
     super.key,
     required this.selected,
     required this.onDestinationSelected,
     this.trailing,
+    this.uploadQueueSlot,
   });
 
   @override
@@ -46,12 +48,34 @@ class AppBottomNav extends StatelessWidget {
                 onTap: () => onDestinationSelected(NavDestination.projects),
               ),
               _NavItem(
+                icon: Icons.contacts_outlined,
+                selectedIcon: Icons.contacts_rounded,
+                label: 'Контакты',
+                isSelected: selected == NavDestination.contacts,
+                onTap: () => onDestinationSelected(NavDestination.contacts),
+              ),
+              _NavItem(
+                icon: Icons.groups_outlined,
+                selectedIcon: Icons.groups_rounded,
+                label: 'Группы',
+                isSelected: selected == NavDestination.searchGroups,
+                onTap: () => onDestinationSelected(NavDestination.searchGroups),
+              ),
+              _NavItem(
+                icon: Icons.person_search_outlined,
+                selectedIcon: Icons.person_search_rounded,
+                label: 'Люди',
+                isSelected: selected == NavDestination.userSearch,
+                onTap: () => onDestinationSelected(NavDestination.userSearch),
+              ),
+              _NavItem(
                 icon: Icons.menu_rounded,
                 selectedIcon: Icons.menu_rounded,
                 label: 'Меню',
                 isSelected: selected == NavDestination.menu,
                 onTap: () => onDestinationSelected(NavDestination.menu),
               ),
+              if (uploadQueueSlot != null) uploadQueueSlot!,
               ...[if (trailing != null) trailing!],
             ],
           ),

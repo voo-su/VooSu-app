@@ -1,7 +1,11 @@
 import 'package:voosu/domain/entities/attachment_upload.dart';
+import 'package:voosu/domain/entities/group_message_mention.dart';
+import 'package:voosu/domain/entities/mixed_send_item.dart';
 import 'package:voosu/domain/entities/chat.dart';
 import 'package:voosu/domain/entities/group_info.dart';
 import 'package:voosu/domain/entities/message.dart';
+import 'package:voosu/domain/entities/overt_group_listing.dart';
+import 'package:voosu/domain/entities/user_sticker.dart';
 
 abstract class ChatRepository {
   Future<Chat> createChat(int userId);
@@ -31,6 +35,45 @@ abstract class ChatRepository {
     bool forwarded = false,
     int forwardedFromMessageId = 0,
     List<AttachmentUpload>? attachments,
+    GroupMessageMention? mention,
+  });
+
+  Future<Message> sendMixedMessage({
+    int? peerUserId,
+    int? peerGroupId,
+    required List<MixedSendItem> items,
+    int replyToMessageId = 0,
+    GroupMessageMention? mention,
+  });
+
+  Future<List<UserSticker>> listMyStickers();
+
+  Future<UserSticker> addStickerFromUploadedFile(int fileId);
+
+  Future<void> deleteMyStickers(List<int> stickerIds);
+
+  Future<Message> sendSticker({
+    int? peerUserId,
+    int? peerGroupId,
+    required int stickerId,
+    int replyToMessageId = 0,
+  });
+
+  Future<Message> sendCodeMessage({
+    int? peerUserId,
+    int? peerGroupId,
+    required String lang,
+    required String code,
+    int replyToMessageId = 0,
+  });
+
+  Future<Message> sendLocationMessage({
+    int? peerUserId,
+    int? peerGroupId,
+    required String latitude,
+    required String longitude,
+    String description = '',
+    int replyToMessageId = 0,
   });
 
   Future<int> uploadFile({
@@ -66,11 +109,24 @@ abstract class ChatRepository {
 
   Future<void> deleteChat({int? peerUserId, int? peerGroupId});
 
-  Future<void> sendTyping(int peerUserId);
+  Future<void> sendTyping({int? peerUserId, int? peerGroupId});
 
   Future<int> uploadGroupPhoto(int groupId, int fileId);
 
   Future<void> setChatNotifications(Chat chat, bool notificationsMuted);
+
+  Future<void> setChatTop({required int listId, required bool pin});
+
+  Future<void> leaveGroup(int groupId);
+
+  Future<({List<OvertGroupListing> items, bool hasMore})> searchPublicGroups({
+    required String nameQuery,
+    required int page,
+  });
+
+  Future<void> requestToJoinGroup(int groupId);
+
+  Future<void> clearUnread({int? peerUserId, int? peerGroupId});
 
   Future<void> reportInlineCallback({
     required Chat chat,
@@ -90,6 +146,8 @@ abstract class ChatRepository {
     required int messageId,
     required int optionId,
   });
+
+  Future<void> collectStickerFromMessage(int messageId);
 
   Future<void> savePendingMessage({
     required String localId,

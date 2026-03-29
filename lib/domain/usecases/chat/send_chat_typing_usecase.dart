@@ -5,5 +5,6 @@ class SendChatTypingUseCase {
 
   SendChatTypingUseCase(this.repo);
 
-  Future<void> call(int peerUserId) => repo.sendTyping(peerUserId);
+  Future<void> call({int? peerUserId, int? peerGroupId}) =>
+      repo.sendTyping(peerUserId: peerUserId, peerGroupId: peerGroupId);
 }

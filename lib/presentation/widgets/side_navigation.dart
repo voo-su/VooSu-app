@@ -1,18 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:voosu/core/theme/app_theme.dart';
 
-enum NavDestination { chat, projects, profile, menu }
+enum NavDestination {
+  chat,
+  projects,
+  contacts,
+  searchGroups,
+  userSearch,
+  profile,
+  menu,
+}
 
 class SideNavigation extends StatelessWidget {
   final NavDestination selected;
   final ValueChanged<NavDestination> onDestinationSelected;
   final Widget? trailing;
+  final Widget? uploadQueueSlot;
 
   const SideNavigation({
     super.key,
     required this.selected,
     required this.onDestinationSelected,
     this.trailing,
+    this.uploadQueueSlot,
   });
 
   static const double width = 72;
@@ -50,7 +60,35 @@ class SideNavigation extends StatelessWidget {
             tooltip: 'Проекты',
             onTap: () => onDestinationSelected(NavDestination.projects),
           ),
+          const SizedBox(height: 4),
+          _RailIcon(
+            icon: Icons.contacts_outlined,
+            selectedIcon: Icons.contacts_rounded,
+            isSelected: selected == NavDestination.contacts,
+            tooltip: 'Контакты',
+            onTap: () => onDestinationSelected(NavDestination.contacts),
+          ),
+          const SizedBox(height: 4),
+          _RailIcon(
+            icon: Icons.groups_outlined,
+            selectedIcon: Icons.groups_rounded,
+            isSelected: selected == NavDestination.searchGroups,
+            tooltip: 'Поиск групп',
+            onTap: () => onDestinationSelected(NavDestination.searchGroups),
+          ),
+          const SizedBox(height: 4),
+          _RailIcon(
+            icon: Icons.person_search_outlined,
+            selectedIcon: Icons.person_search_rounded,
+            isSelected: selected == NavDestination.userSearch,
+            tooltip: 'Поиск пользователей',
+            onTap: () => onDestinationSelected(NavDestination.userSearch),
+          ),
           const Spacer(),
+          if (uploadQueueSlot != null) ...[
+            uploadQueueSlot!,
+            const SizedBox(height: 8),
+          ],
           _RailIcon(
             icon: Icons.person_outline_rounded,
             selectedIcon: Icons.person_rounded,

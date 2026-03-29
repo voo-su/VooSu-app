@@ -7,6 +7,7 @@ import 'package:voosu/core/injector.dart' as di;
 import 'package:voosu/core/util.dart';
 import 'package:voosu/domain/repositories/account_repository.dart';
 import 'package:voosu/presentation/widgets/avatar_from_file_id.dart';
+import 'package:voosu/core/failures.dart';
 import 'package:voosu/domain/entities/group_info.dart';
 import 'package:voosu/presentation/widgets/loading_placeholder.dart';
 import 'package:voosu/domain/entities/user.dart';
@@ -39,6 +40,7 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
   bool _loading = true;
   String? _error;
   bool _addingMember = false;
+  bool _leavingGroup = false;
   String? _actionError;
 
   @override
@@ -173,6 +175,62 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
         setState(() => _actionError = 'Не удалось загрузить фото');
       }
     }
+  }
+
+  Future<void> _confirmLeaveGroup() async {
+    final title = _info?.title ?? widget.groupTitle;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Покинуть группу'),
+        content: Text('Выйти из группы «$title»?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(
+              'Выйти',
+              style: TextStyle(color: Theme.of(ctx).colorScheme.error),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) {
+      return;
+    }
+    setState(() {
+      _actionError = null;
+      _leavingGroup = true;
+    });
+    try {
+      await _repo.leaveGroup(widget.groupId);
+    } on Failure catch (e) {
+      if (mounted) {
+        setState(() {
+          _actionError = e.message;
+          _leavingGroup = false;
+        });
+      }
+      return;
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _actionError = 'Не удалось выйти из группы';
+          _leavingGroup = false;
+        });
+      }
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    setState(() => _leavingGroup = false);
+    context.read<ChatBloc>().add(ChatGroupLeftApplied(widget.groupId));
+    Navigator.of(context).pop();
   }
 
   void _openAddMember() async {
@@ -332,6 +390,16 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
                       onSetRole: _setRole,
                       onRemoveMember: _isCurrentUserAdmin ? _removeMember : null,
                     ),
+                  ),
+                  const SizedBox(height: 32),
+                  OutlinedButton.icon(
+                    onPressed: _leavingGroup ? null : _confirmLeaveGroup,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: theme.colorScheme.error,
+                      side: BorderSide(color: theme.colorScheme.error),
+                    ),
+                    icon: const Icon(Icons.logout_rounded),
+                    label: const Text('Покинуть группу'),
                   ),
                 ],
               ),

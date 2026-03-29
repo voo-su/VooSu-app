@@ -106,6 +106,28 @@ class AccountRepositoryImpl implements AccountRepository {
   }
 
   @override
+  Future<int> getConfidentialitySettings() async {
+    try {
+      return await dataSource.getConfidentialitySettings();
+    } catch (e) {
+      if (e is Failure) rethrow;
+      Logs().e('AccountRepository: конфиденциальность', e);
+      throw ApiFailure('Ошибка загрузки настроек приватности');
+    }
+  }
+
+  @override
+  Future<void> updateConfidentialitySettings(int messagePrivacy) async {
+    try {
+      await dataSource.updateConfidentialitySettings(messagePrivacy);
+    } catch (e) {
+      if (e is Failure) rethrow;
+      Logs().e('AccountRepository: сохранение конфиденциальности', e);
+      throw ApiFailure('Ошибка сохранения настроек приватности');
+    }
+  }
+
+  @override
   Future<UploadProfilePhotoResult> uploadProfilePhoto(int fileId) async {
     try {
       return await dataSource.uploadProfilePhoto(fileId);

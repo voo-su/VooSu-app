@@ -99,3 +99,12 @@ class AuthProfilePersonalUpdated extends AuthEvent {
   @override
   List<Object?> get props => [name, surname, gender, birthday, about];
 }
+
+class AuthMessagePrivacyUpdated extends AuthEvent {
+  final int messagePrivacy;
+
+  const AuthMessagePrivacyUpdated(this.messagePrivacy);
+
+  @override
+  List<Object?> get props => [messagePrivacy];
+}

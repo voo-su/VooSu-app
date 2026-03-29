@@ -22,6 +22,10 @@ abstract interface class AccountRepository {
 
   Future<void> revokeDevice(int deviceId);
 
+  Future<int> getConfidentialitySettings();
+
+  Future<void> updateConfidentialitySettings(int messagePrivacy);
+
   Future<UploadProfilePhotoResult> uploadProfilePhoto(int fileId);
 
   Future<List<int>> getFile(int fileId);

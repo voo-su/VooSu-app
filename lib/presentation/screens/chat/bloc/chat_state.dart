@@ -2,7 +2,9 @@ import 'package:equatable/equatable.dart';
 import 'package:voosu/domain/entities/chat.dart';
 import 'package:voosu/domain/entities/message.dart';
 import 'package:voosu/presentation/screens/chat/bloc/pending_outgoing_message.dart';
+import 'package:voosu/domain/entities/chat_mention_member.dart';
 import 'package:voosu/domain/entities/pending_queue_item.dart';
+import 'package:voosu/domain/entities/user_typing_payload.dart';
 
 class ChatState extends Equatable {
   final bool isLoading;
@@ -14,9 +16,11 @@ class ChatState extends Equatable {
   final List<PendingQueueItem> pendingQueue;
   final Set<int> selectedMessageIds;
   final String? error;
-  final int? typingUserId;
+  final String? snackbarHint;
+  final UserTypingPayload? typing;
   final Message? replyTo;
   final PendingOutgoingMessage? pendingOutgoingMessage;
+  final List<ChatMentionMember> groupMentionMembers;
 
   const ChatState({
     this.isLoading = false,
@@ -28,9 +32,11 @@ class ChatState extends Equatable {
     this.pendingQueue = const [],
     this.selectedMessageIds = const {},
     this.error,
-    this.typingUserId,
+    this.snackbarHint,
+    this.typing,
     this.replyTo,
     this.pendingOutgoingMessage,
+    this.groupMentionMembers = const [],
   });
 
   bool get isSelectionMode => selectedMessageIds.isNotEmpty;
@@ -48,12 +54,16 @@ class ChatState extends Equatable {
     Set<int>? selectedMessageIds,
     bool clearSelection = false,
     String? error,
-    int? typingUserId,
-    bool clearTypingUserId = false,
+    String? snackbarHint,
+    bool clearSnackbarHint = false,
+    UserTypingPayload? typing,
+    bool clearTyping = false,
     Message? replyTo,
     bool clearReplyTo = false,
     PendingOutgoingMessage? pendingOutgoingMessage,
     bool clearPendingOutgoing = false,
+    List<ChatMentionMember>? groupMentionMembers,
+    bool clearGroupMentionMembers = false,
   }) {
     return ChatState(
       isLoading: isLoading ?? this.isLoading,
@@ -71,13 +81,15 @@ class ChatState extends Equatable {
           ? const {}
           : (selectedMessageIds ?? this.selectedMessageIds),
       error: error,
-      typingUserId: clearTypingUserId
-          ? null
-          : (typingUserId ?? this.typingUserId),
+      snackbarHint: clearSnackbarHint ? null : (snackbarHint ?? this.snackbarHint),
+      typing: clearTyping ? null : (typing ?? this.typing),
       replyTo: clearReplyTo ? null : (replyTo ?? this.replyTo),
       pendingOutgoingMessage: clearPendingOutgoing
           ? null
           : (pendingOutgoingMessage ?? this.pendingOutgoingMessage),
+      groupMentionMembers: clearGroupMentionMembers
+          ? const []
+          : (groupMentionMembers ?? this.groupMentionMembers),
     );
   }
 
@@ -92,8 +104,10 @@ class ChatState extends Equatable {
     pendingQueue,
     selectedMessageIds,
     error,
-    typingUserId,
+    snackbarHint,
+    typing,
     replyTo,
     pendingOutgoingMessage,
+    groupMentionMembers,
   ];
 }

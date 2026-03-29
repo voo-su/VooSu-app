@@ -1,3 +1,4 @@
+import 'package:voosu/core/chat_msg_type.dart';
 import 'package:voosu/domain/entities/chat.dart';
 import 'package:voosu/domain/entities/user.dart';
 import 'package:voosu/generated/grpc_pb/chat.pbgrpc.dart' as chatpb;
@@ -39,15 +40,36 @@ class ChatMapper {
       : null;
 
     String? lastMessagePreview;
-    if (chat.hasLastMessage() && chat.lastMessage.content.isNotEmpty) {
-      const maxLen = 60;
-      final content = chat.lastMessage.content.trim();
-      lastMessagePreview = content.length <= maxLen
-        ? content
-        : content.substring(0, maxLen);
-    } else if (chat.hasLastMessage() && chat.lastMessage.attachments.isNotEmpty) {
-      lastMessagePreview = 'Вложение';
+    if (chat.hasLastMessage()) {
+      final lm = chat.lastMessage;
+      if (lm.msgType == ChatMsgType.code) {
+        lastMessagePreview = 'Код';
+      } else if (lm.msgType == ChatMsgType.card) {
+        lastMessagePreview = 'Контактная карточка';
+      } else if (lm.msgType == ChatMsgType.forward) {
+        lastMessagePreview = 'Пересланное сообщение';
+      } else if (lm.msgType == ChatMsgType.login) {
+        lastMessagePreview = 'Вход в аккаунт';
+      } else if (lm.msgType == ChatMsgType.mixed) {
+        lastMessagePreview = 'Фото и текст';
+      } else if (lm.msgType >= ChatMsgType.sysMin) {
+        lastMessagePreview = 'Системное сообщение';
+      } else if (lm.msgType == ChatMsgType.location) {
+        final desc = lm.hasLocation() ? lm.location.description.trim() : '';
+        lastMessagePreview = desc.isNotEmpty ? desc : 'Местоположение';
+      } else if (lm.content.isNotEmpty) {
+        const maxLen = 60;
+        final content = lm.content.trim();
+        lastMessagePreview = content.length <= maxLen
+            ? content
+            : content.substring(0, maxLen);
+      } else if (lm.attachments.isNotEmpty) {
+        lastMessagePreview = 'Вложение';
+      }
     }
+
+    final listId = chat.listId.toInt();
+    final isPinned = chat.isTop == 1;
 
     return Chat(
       id: id,
@@ -66,6 +88,8 @@ class ChatMapper {
       avatarFileId: avatarFileId,
       lastMessagePreview: lastMessagePreview,
       notificationsMuted: chat.notificationsMuted,
+      listId: listId,
+      isPinned: isPinned,
     );
   }
 

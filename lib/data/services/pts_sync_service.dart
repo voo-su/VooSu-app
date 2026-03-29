@@ -12,7 +12,9 @@ import 'package:voosu/data/services/user_online_status_service.dart';
 import 'package:voosu/domain/entities/message.dart';
 import 'package:voosu/domain/entities/message_deleted_payload.dart';
 import 'package:voosu/domain/entities/message_read_payload.dart';
+import 'package:voosu/domain/entities/user_typing_payload.dart';
 import 'package:voosu/domain/entities/attachment_upload.dart';
+import 'package:voosu/domain/entities/mixed_send_item.dart';
 import 'package:voosu/data/mappers/task_mapper.dart';
 import 'package:voosu/domain/entities/task.dart';
 import 'package:voosu/domain/entities/task_update_payload.dart';
@@ -52,7 +54,7 @@ class PtsSyncService {
   final StreamSink<Message>? _newMessageSink;
   final StreamSink<MessageDeletedPayload>? _messageDeletedSink;
   final StreamSink<MessageReadPayload>? _messageReadSink;
-  final StreamSink<int>? _userTypingSink;
+  final StreamSink<UserTypingPayload>? _userTypingSink;
   final StreamSink<TaskUpdatePayload>? _taskUpdateSink;
   final StreamSink<Object?>? _chatListRefreshSink;
   final StreamSink<Object?>? _syncRestoredSink;
@@ -77,7 +79,7 @@ class PtsSyncService {
     StreamSink<Message>? newMessageSink,
     StreamSink<MessageDeletedPayload>? messageDeletedSink,
     StreamSink<MessageReadPayload>? messageReadSink,
-    StreamSink<int>? userTypingSink,
+    StreamSink<UserTypingPayload>? userTypingSink,
     StreamSink<TaskUpdatePayload>? taskUpdateSink,
     StreamSink<Object?>? chatListRefreshSink,
     StreamSink<Object?>? syncRestoredSink,
@@ -393,13 +395,35 @@ class PtsSyncService {
             }
           }
 
-          await repo.sendMessage(
-            peerUserId: peerUserId == 0 ? null : peerUserId,
-            peerGroupId: peerGroupId == 0 ? null : peerGroupId,
-            content: p['content'] as String? ?? '',
-            replyToMessageId: p['replyToId'] as int? ?? 0,
-            attachments: attachments,
-          );
+          final content = p['content'] as String? ?? '';
+          final replyToId = p['replyToId'] as int? ?? 0;
+          if (shouldSendAsMixedMessage(content, attachments)) {
+            final imgs = attachments!;
+            final items = <MixedSendItem>[
+              MixedSendItem(itemType: 1, content: content.trim(), imageFileId: 0),
+              ...imgs.map(
+                (a) => MixedSendItem(
+                  itemType: 3,
+                  content: '',
+                  imageFileId: a.fileId,
+                ),
+              ),
+            ];
+            await repo.sendMixedMessage(
+              peerUserId: peerUserId == 0 ? null : peerUserId,
+              peerGroupId: peerGroupId == 0 ? null : peerGroupId,
+              items: items,
+              replyToMessageId: replyToId,
+            );
+          } else {
+            await repo.sendMessage(
+              peerUserId: peerUserId == 0 ? null : peerUserId,
+              peerGroupId: peerGroupId == 0 ? null : peerGroupId,
+              content: content,
+              replyToMessageId: replyToId,
+              attachments: attachments,
+            );
+          }
           await repo.removePendingMessage(p['localId'] as String);
           Logs().d('PtsSyncService: отправлено сообщение из очереди ${p['localId']}');
         } catch (e) {
@@ -537,8 +561,17 @@ class PtsSyncService {
   Future<void> _processUserTyping(UpdateUserTyping update) async {
     try {
       final userId = update.userId.toInt();
-      _userTypingSink?.add(userId);
-      Logs().d('PtsSyncService: печатает userId=$userId');
+      var peerType = update.peerType;
+      if (peerType == 0) {
+        peerType = 1;
+      }
+      final peerId = update.peerId.toInt();
+      _userTypingSink?.add(
+        UserTypingPayload(userId: userId, peerType: peerType, peerId: peerId),
+      );
+      Logs().d(
+        'PtsSyncService: печатает userId=$userId peerType=$peerType peerId=$peerId',
+      );
     } catch (e, stackTrace) {
       Logs().e('Ошибка обработки печатает', e, stackTrace);
     }

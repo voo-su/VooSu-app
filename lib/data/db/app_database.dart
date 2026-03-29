@@ -6,6 +6,8 @@ import 'package:drift/native.dart';
 import 'package:voosu/domain/entities/chat.dart';
 import 'package:voosu/domain/entities/chat_attachment.dart';
 import 'package:voosu/domain/entities/message.dart';
+import 'package:voosu/domain/entities/poll.dart';
+import 'package:voosu/domain/entities/reply_markup.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -44,6 +46,24 @@ class CachedMessages extends Table {
 
   TextColumn get attachmentsJson => text().nullable()();
 
+  IntColumn get msgType => integer().withDefault(const Constant(1))();
+
+  TextColumn get extraJson => text().nullable()();
+
+  TextColumn get codeLang => text().nullable()();
+
+  TextColumn get codeText => text().nullable()();
+
+  TextColumn get locationLatitude => text().nullable()();
+
+  TextColumn get locationLongitude => text().nullable()();
+
+  TextColumn get locationDescription => text().nullable()();
+
+  TextColumn get replyMarkupJson => text().nullable()();
+
+  TextColumn get pollJson => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -76,6 +96,10 @@ class CachedChats extends Table {
   TextColumn get lastMessagePreview => text().nullable()();
 
   BoolColumn get notificationsMuted => boolean().withDefault(const Constant(false))();
+
+  IntColumn get listId => integer().withDefault(const Constant(0))();
+
+  BoolColumn get isPinned => boolean().withDefault(const Constant(false))();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -112,13 +136,30 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onUpgrade: (migrator, from, to) async {
       if (from < 2) {
         await migrator.createTable(pendingOutgoingMessages);
+      }
+      if (from < 3) {
+        await migrator.addColumn(cachedChats, cachedChats.listId);
+        await migrator.addColumn(cachedChats, cachedChats.isPinned);
+      }
+      if (from < 4) {
+        await migrator.addColumn(cachedMessages, cachedMessages.msgType);
+        await migrator.addColumn(cachedMessages, cachedMessages.extraJson);
+        await migrator.addColumn(cachedMessages, cachedMessages.codeLang);
+        await migrator.addColumn(cachedMessages, cachedMessages.codeText);
+        await migrator.addColumn(cachedMessages, cachedMessages.locationLatitude);
+        await migrator.addColumn(cachedMessages, cachedMessages.locationLongitude);
+        await migrator.addColumn(cachedMessages, cachedMessages.locationDescription);
+      }
+      if (from < 5) {
+        await migrator.addColumn(cachedMessages, cachedMessages.replyMarkupJson);
+        await migrator.addColumn(cachedMessages, cachedMessages.pollJson);
       }
     },
   );
@@ -190,10 +231,13 @@ class AppDatabase extends _$AppDatabase {
                   'mimeType': a.mimeType,
                   'size': a.size,
                   'type': a.type,
+                  'externalUrl': a.externalUrl,
                 },
               )
               .toList(),
         );
+    final String? replyMarkupJson = _cachedReplyMarkupJson(msg.replyMarkup);
+    final String? pollJsonEnc = _cachedPollJson(msg.poll);
 
     await into(cachedMessages).insert(
       CachedMessagesCompanion.insert(
@@ -211,6 +255,35 @@ class AppDatabase extends _$AppDatabase {
         attachmentsJson: attachmentsJson == null
           ? const Value.absent()
           : Value(attachmentsJson),
+        msgType: Value(msg.msgType),
+        extraJson: msg.extraJson == null || msg.extraJson!.isEmpty
+          ? const Value.absent()
+          : Value(msg.extraJson),
+        codeLang: msg.codeLang == null || msg.codeLang!.isEmpty
+          ? const Value.absent()
+          : Value(msg.codeLang),
+        codeText: msg.codeText == null || msg.codeText!.isEmpty
+          ? const Value.absent()
+          : Value(msg.codeText),
+        locationLatitude:
+            msg.locationLatitude == null || msg.locationLatitude!.isEmpty
+            ? const Value.absent()
+            : Value(msg.locationLatitude),
+        locationLongitude:
+            msg.locationLongitude == null || msg.locationLongitude!.isEmpty
+            ? const Value.absent()
+            : Value(msg.locationLongitude),
+        locationDescription:
+            msg.locationDescription == null ||
+                msg.locationDescription!.isEmpty
+            ? const Value.absent()
+            : Value(msg.locationDescription),
+        replyMarkupJson: replyMarkupJson == null
+          ? const Value.absent()
+          : Value(replyMarkupJson),
+        pollJson: pollJsonEnc == null
+          ? const Value.absent()
+          : Value(pollJsonEnc),
       ),
       mode: InsertMode.insertOrReplace,
     );
@@ -298,6 +371,9 @@ class AppDatabase extends _$AppDatabase {
       memberCount: row.memberCount,
       avatarFileId: row.avatarFileId,
       lastMessagePreview: row.lastMessagePreview,
+      notificationsMuted: row.notificationsMuted,
+      listId: row.listId,
+      isPinned: row.isPinned,
     );
   }
 
@@ -339,6 +415,8 @@ class AppDatabase extends _$AppDatabase {
           avatarFileId: Value(chat.avatarFileId),
           lastMessagePreview: Value(chat.lastMessagePreview),
           notificationsMuted: Value(chat.notificationsMuted),
+          listId: Value(chat.listId),
+          isPinned: Value(chat.isPinned),
         ),
         mode: InsertMode.insertOrReplace,
       );
@@ -383,6 +461,15 @@ class AppDatabase extends _$AppDatabase {
             forwardedFromMessageId:
                 row.read('forwarded_from_message_id') as int,
             attachmentsJson: row.read('attachments_json') as String?,
+            msgType: row.read<int?>('msg_type') ?? 1,
+            extraJson: row.read<String?>('extra_json'),
+            codeLang: row.read<String?>('code_lang'),
+            codeText: row.read<String?>('code_text'),
+            locationLatitude: row.read<String?>('location_latitude'),
+            locationLongitude: row.read<String?>('location_longitude'),
+            locationDescription: row.read<String?>('location_description'),
+            replyMarkupJson: row.read<String?>('reply_markup_json'),
+            pollJson: row.read<String?>('poll_json'),
           ),
         )
         .get();
@@ -402,6 +489,7 @@ class AppDatabase extends _$AppDatabase {
             mimeType: m['mimeType'] as String? ?? '',
             size: (m['size'] as num?)?.toInt() ?? 0,
             type: (m['type'] as num?)?.toInt() ?? 0,
+            externalUrl: m['externalUrl'] as String?,
           );
         }).toList();
       } catch (_) {}
@@ -413,6 +501,13 @@ class AppDatabase extends _$AppDatabase {
       peerUserId: row.peerUserId,
       peerGroupId: row.peerGroupId,
       fromPeerUserId: row.fromPeerUserId,
+      msgType: row.msgType,
+      extraJson: row.extraJson,
+      codeLang: row.codeLang,
+      codeText: row.codeText,
+      locationLatitude: row.locationLatitude,
+      locationLongitude: row.locationLongitude,
+      locationDescription: row.locationDescription,
       content: row.content,
       createdAt: DateTime.fromMillisecondsSinceEpoch(row.createdAt * 1000),
       isRead: row.isRead,
@@ -420,6 +515,8 @@ class AppDatabase extends _$AppDatabase {
       forwarded: row.forwarded,
       forwardedFromMessageId: row.forwardedFromMessageId,
       attachments: attachments,
+      replyMarkup: _parseCachedReplyMarkup(row.replyMarkupJson),
+      poll: _parseCachedPoll(row.pollJson),
     );
   }
 
@@ -436,5 +533,133 @@ class AppDatabase extends _$AppDatabase {
       .getSingle();
 
     return (count.read(cachedMessages.id.count()) ?? 0) > 0;
+  }
+}
+
+String? _cachedReplyMarkupJson(ReplyMarkup? r) {
+  if (r == null || r.isEmpty) {
+    return null;
+  }
+  final rows = r.inlineKeyboard
+      .map(
+        (row) => row.buttons
+            .map(
+              (b) => <String, Object?>{
+                'text': b.text,
+                'callback_data': b.callbackData,
+              },
+            )
+            .toList(),
+      )
+      .toList();
+  return jsonEncode(<String, Object?>{'inline_keyboard': rows});
+}
+
+ReplyMarkup? _parseCachedReplyMarkup(String? raw) {
+  if (raw == null || raw.isEmpty) {
+    return null;
+  }
+  try {
+    final m = jsonDecode(raw) as Map<String, dynamic>;
+    final kb = m['inline_keyboard'];
+    if (kb is! List<dynamic>) {
+      return null;
+    }
+    final rows = <InlineKeyboardRow>[];
+    for (final row in kb) {
+      if (row is! List<dynamic>) {
+        continue;
+      }
+      final buttons = <InlineKeyboardButton>[];
+      for (final b in row) {
+        if (b is! Map) {
+          continue;
+        }
+        final bm = Map<String, dynamic>.from(b);
+        buttons.add(
+          InlineKeyboardButton(
+            text: bm['text'] as String? ?? '',
+            callbackData: bm['callback_data'] as String? ?? '',
+          ),
+        );
+      }
+      if (buttons.isNotEmpty) {
+        rows.add(InlineKeyboardRow(buttons: buttons));
+      }
+    }
+    if (rows.isEmpty) {
+      return null;
+    }
+    return ReplyMarkup(inlineKeyboard: rows);
+  } catch (_) {
+    return null;
+  }
+}
+
+String? _cachedPollJson(Poll? p) {
+  if (p == null) {
+    return null;
+  }
+  return jsonEncode(<String, Object?>{
+    'id': p.id,
+    'question': p.question,
+    'anonymous': p.anonymous,
+    'options': p.options
+        .map(
+          (o) => <String, Object?>{
+            'optionId': o.optionId,
+            'text': o.text,
+            'position': o.position,
+            'voteCount': o.voteCount,
+            'voterUserIds': o.voterUserIds,
+          },
+        )
+        .toList(),
+  });
+}
+
+Poll? _parseCachedPoll(String? raw) {
+  if (raw == null || raw.isEmpty) {
+    return null;
+  }
+  try {
+    final m = jsonDecode(raw) as Map<String, dynamic>;
+    final opts = m['options'];
+    if (opts is! List<dynamic>) {
+      return null;
+    }
+    final options = <PollOptionResult>[];
+    for (final e in opts) {
+      if (e is! Map) {
+        continue;
+      }
+      final em = Map<String, dynamic>.from(e);
+      final voters = em['voterUserIds'];
+      final uidList = <int>[];
+      if (voters is List<dynamic>) {
+        for (final v in voters) {
+          if (v is num) {
+            uidList.add(v.toInt());
+          }
+        }
+      }
+      options.add(
+        PollOptionResult(
+          optionId: (em['optionId'] as num?)?.toInt() ?? 0,
+          text: em['text'] as String? ?? '',
+          position: (em['position'] as num?)?.toInt() ?? 0,
+          voteCount: (em['voteCount'] as num?)?.toInt() ?? 0,
+          voterUserIds: uidList,
+        ),
+      );
+    }
+    return Poll(
+      id: (m['id'] as num?)?.toInt() ?? 0,
+      question: m['question'] as String? ?? '',
+      anonymous: m['anonymous'] == true,
+      options: options,
+    );
+  } catch (_) {
+    return null;
   }
 }

@@ -12,9 +12,13 @@ import 'package:voosu/data/mappers/chat_mapper.dart';
 import 'package:voosu/data/mappers/message_mapper.dart';
 import 'package:voosu/data/mappers/user_mapper.dart';
 import 'package:voosu/domain/entities/attachment_upload.dart';
+import 'package:voosu/domain/entities/group_message_mention.dart';
+import 'package:voosu/domain/entities/mixed_send_item.dart';
 import 'package:voosu/domain/entities/chat.dart';
 import 'package:voosu/domain/entities/group_info.dart';
 import 'package:voosu/domain/entities/message.dart';
+import 'package:voosu/domain/entities/overt_group_listing.dart';
+import 'package:voosu/domain/entities/user_sticker.dart';
 import 'package:voosu/generated/grpc_pb/chat.pbgrpc.dart' as chatpb;
 import 'package:voosu/generated/grpc_pb/common.pb.dart' as commonpb;
 import 'package:voosu/generated/grpc_pb/file.pbgrpc.dart' as filepb;
@@ -45,6 +49,47 @@ abstract class IChatRemoteDataSource {
     bool forwarded = false,
     int forwardedFromMessageId = 0,
     List<AttachmentUpload>? attachments,
+    GroupMessageMention? mention,
+  });
+
+  Future<Message> sendMixedMessage({
+    int? peerUserId,
+    int? peerGroupId,
+    required List<MixedSendItem> items,
+    int replyToMessageId = 0,
+    GroupMessageMention? mention,
+  });
+
+  Future<List<UserSticker>> listMyStickers();
+
+  Future<UserSticker> addStickerFromUploadedFile(int fileId);
+
+  Future<void> deleteMyStickers(List<int> stickerIds);
+
+  Future<void> collectStickerFromMessage(int messageId);
+
+  Future<Message> sendSticker({
+    int? peerUserId,
+    int? peerGroupId,
+    required int stickerId,
+    int replyToMessageId = 0,
+  });
+
+  Future<Message> sendCodeMessage({
+    int? peerUserId,
+    int? peerGroupId,
+    required String lang,
+    required String code,
+    int replyToMessageId = 0,
+  });
+
+  Future<Message> sendLocationMessage({
+    int? peerUserId,
+    int? peerGroupId,
+    required String latitude,
+    required String longitude,
+    String description = '',
+    int replyToMessageId = 0,
   });
 
   Future<int> uploadFile({
@@ -68,11 +113,24 @@ abstract class IChatRemoteDataSource {
 
   Future<void> deleteChat({int? peerUserId, int? peerGroupId});
 
-  Future<void> sendTyping(int peerUserId);
+  Future<void> sendTyping({int? peerUserId, int? peerGroupId});
 
   Future<int> uploadGroupPhoto(int groupId, int fileId);
 
   Future<void> setChatNotifications(Chat chat, bool notificationsMuted);
+
+  Future<void> setChatTop({required int listId, required bool pin});
+
+  Future<void> leaveGroup(int groupId);
+
+  Future<({List<OvertGroupListing> items, bool hasMore})> searchPublicGroups({
+    required String nameQuery,
+    required int page,
+  });
+
+  Future<void> requestToJoinGroup(int groupId);
+
+  Future<void> clearUnread({int? peerUserId, int? peerGroupId});
 
   Future<void> reportInlineCallback({
     int? peerUserId,
@@ -258,6 +316,7 @@ class ChatRemoteDataSource implements IChatRemoteDataSource {
     bool forwarded = false,
     int forwardedFromMessageId = 0,
     List<AttachmentUpload>? attachments,
+    GroupMessageMention? mention,
   }) async {
     Logs().d('ChatRemoteDataSource: sendMessage peerUserId=$peerUserId peerGroupId=$peerGroupId');
     try {
@@ -278,6 +337,9 @@ class ChatRemoteDataSource implements IChatRemoteDataSource {
           ? Int64(forwardedFromMessageId)
           : null,
         attachments: attachmentProtos,
+        mention: mention != null && !mention.isEmpty
+            ? chatpb.MessageMention(all: mention.all, uids: mention.uids)
+            : null,
       );
       final resp = await _authGuard.execute(() => _client.sendMessage(req));
 
@@ -288,6 +350,213 @@ class ChatRemoteDataSource implements IChatRemoteDataSource {
     } catch (e) {
       Logs().e('ChatRemoteDataSource: ошибка в sendMessage', e);
       throw ApiFailure('Ошибка отправки сообщения');
+    }
+  }
+
+  @override
+  Future<Message> sendMixedMessage({
+    int? peerUserId,
+    int? peerGroupId,
+    required List<MixedSendItem> items,
+    int replyToMessageId = 0,
+    GroupMessageMention? mention,
+  }) async {
+    try {
+      final peer = peerGroupId != null && peerGroupId > 0
+        ? commonpb.Peer(groupId: Int64(peerGroupId))
+        : commonpb.Peer(userId: Int64(peerUserId ?? 0));
+      final protos = items
+          .map(
+            (e) => chatpb.MixedMessageItem(
+              itemType: e.itemType,
+              content: e.content,
+              imageFileId: e.imageFileId > 0 ? Int64(e.imageFileId) : null,
+            ),
+          )
+          .toList();
+      final req = chatpb.SendMessageRequest(
+        peer: peer,
+        content: '',
+        replyToMessageId: replyToMessageId > 0 ? Int64(replyToMessageId) : null,
+        mixedItems: protos,
+        mention: mention != null && !mention.isEmpty
+            ? chatpb.MessageMention(all: mention.all, uids: mention.uids)
+            : null,
+      );
+      final resp = await _authGuard.execute(() => _client.sendMessage(req));
+      return MessageMapper.fromProto(resp);
+    } on GrpcError catch (e) {
+      Logs().e('ChatRemoteDataSource: ошибка gRPC в sendMixedMessage', e);
+      throwGrpcError(e, 'Ошибка отправки сообщения');
+    } catch (e) {
+      Logs().e('ChatRemoteDataSource: ошибка в sendMixedMessage', e);
+      throw ApiFailure('Ошибка отправки сообщения');
+    }
+  }
+
+  @override
+  Future<List<UserSticker>> listMyStickers() async {
+    try {
+      final resp = await _authGuard.execute(
+        () => _client.listMyStickers(chatpb.ListMyStickersRequest()),
+      );
+      return resp.stickers
+          .map((s) => UserSticker(id: s.id.toInt(), url: s.url))
+          .toList();
+    } on GrpcError catch (e) {
+      Logs().e('ChatRemoteDataSource: ошибка gRPC в listMyStickers', e);
+      throwGrpcError(e, 'Ошибка загрузки стикеров');
+    } catch (e) {
+      Logs().e('ChatRemoteDataSource: ошибка в listMyStickers', e);
+      throw ApiFailure('Ошибка загрузки стикеров');
+    }
+  }
+
+  @override
+  Future<UserSticker> addStickerFromUploadedFile(int fileId) async {
+    try {
+      final resp = await _authGuard.execute(
+        () => _client.addStickerFromFile(
+          chatpb.AddStickerFromFileRequest(fileId: Int64(fileId)),
+        ),
+      );
+      return UserSticker(id: resp.id.toInt(), url: resp.url);
+    } on GrpcError catch (e) {
+      Logs().e('ChatRemoteDataSource: ошибка gRPC в addStickerFromUploadedFile', e);
+      throwGrpcError(e, 'Не удалось добавить стикер');
+    } catch (e) {
+      Logs().e('ChatRemoteDataSource: ошибка в addStickerFromUploadedFile', e);
+      throw ApiFailure('Не удалось добавить стикер');
+    }
+  }
+
+  @override
+  Future<void> deleteMyStickers(List<int> stickerIds) async {
+    if (stickerIds.isEmpty) {
+      return;
+    }
+    try {
+      await _authGuard.execute(
+        () => _client.deleteMyStickers(
+          chatpb.DeleteMyStickersRequest(
+            stickerIds: stickerIds.map((id) => Int64(id)).toList(),
+          ),
+        ),
+      );
+    } on GrpcError catch (e) {
+      Logs().e('ChatRemoteDataSource: ошибка gRPC в deleteMyStickers', e);
+      throwGrpcError(e, 'Не удалось удалить стикер');
+    } catch (e) {
+      Logs().e('ChatRemoteDataSource: ошибка в deleteMyStickers', e);
+      throw ApiFailure('Не удалось удалить стикер');
+    }
+  }
+
+  @override
+  Future<void> collectStickerFromMessage(int messageId) async {
+    if (messageId <= 0) {
+      throw ApiFailure('Некорректное сообщение');
+    }
+    try {
+      await _authGuard.execute(
+        () => _client.collectStickerFromMessage(
+          chatpb.CollectStickerFromMessageRequest(messageId: Int64(messageId)),
+        ),
+      );
+    } on GrpcError catch (e) {
+      Logs().e('ChatRemoteDataSource: ошибка gRPC в collectStickerFromMessage', e);
+      throwGrpcError(e, 'Не удалось сохранить стикер');
+    } catch (e) {
+      Logs().e('ChatRemoteDataSource: ошибка в collectStickerFromMessage', e);
+      throw ApiFailure('Не удалось сохранить стикер');
+    }
+  }
+
+  @override
+  Future<Message> sendSticker({
+    int? peerUserId,
+    int? peerGroupId,
+    required int stickerId,
+    int replyToMessageId = 0,
+  }) async {
+    try {
+      final peer = peerGroupId != null && peerGroupId > 0
+        ? commonpb.Peer(groupId: Int64(peerGroupId))
+        : commonpb.Peer(userId: Int64(peerUserId ?? 0));
+      final req = chatpb.SendMessageRequest(
+        peer: peer,
+        stickerId: Int64(stickerId),
+        replyToMessageId: replyToMessageId > 0 ? Int64(replyToMessageId) : null,
+      );
+      final resp = await _authGuard.execute(() => _client.sendMessage(req));
+      return MessageMapper.fromProto(resp);
+    } on GrpcError catch (e) {
+      Logs().e('ChatRemoteDataSource: ошибка gRPC в sendSticker', e);
+      throwGrpcError(e, 'Ошибка отправки стикера');
+    } catch (e) {
+      Logs().e('ChatRemoteDataSource: ошибка в sendSticker', e);
+      throw ApiFailure('Ошибка отправки стикера');
+    }
+  }
+
+  @override
+  Future<Message> sendCodeMessage({
+    int? peerUserId,
+    int? peerGroupId,
+    required String lang,
+    required String code,
+    int replyToMessageId = 0,
+  }) async {
+    try {
+      final peer = peerGroupId != null && peerGroupId > 0
+          ? commonpb.Peer(groupId: Int64(peerGroupId))
+          : commonpb.Peer(userId: Int64(peerUserId ?? 0));
+      final req = chatpb.SendMessageRequest(
+        peer: peer,
+        code: chatpb.MessageCode(lang: lang, text: code),
+        replyToMessageId: replyToMessageId > 0 ? Int64(replyToMessageId) : null,
+      );
+      final resp = await _authGuard.execute(() => _client.sendMessage(req));
+      return MessageMapper.fromProto(resp);
+    } on GrpcError catch (e) {
+      Logs().e('ChatRemoteDataSource: ошибка gRPC в sendCodeMessage', e);
+      throwGrpcError(e, 'Ошибка отправки кода');
+    } catch (e) {
+      Logs().e('ChatRemoteDataSource: ошибка в sendCodeMessage', e);
+      throw ApiFailure('Ошибка отправки кода');
+    }
+  }
+
+  @override
+  Future<Message> sendLocationMessage({
+    int? peerUserId,
+    int? peerGroupId,
+    required String latitude,
+    required String longitude,
+    String description = '',
+    int replyToMessageId = 0,
+  }) async {
+    try {
+      final peer = peerGroupId != null && peerGroupId > 0
+          ? commonpb.Peer(groupId: Int64(peerGroupId))
+          : commonpb.Peer(userId: Int64(peerUserId ?? 0));
+      final req = chatpb.SendMessageRequest(
+        peer: peer,
+        location: chatpb.MessageLocation(
+          latitude: latitude,
+          longitude: longitude,
+          description: description,
+        ),
+        replyToMessageId: replyToMessageId > 0 ? Int64(replyToMessageId) : null,
+      );
+      final resp = await _authGuard.execute(() => _client.sendMessage(req));
+      return MessageMapper.fromProto(resp);
+    } on GrpcError catch (e) {
+      Logs().e('ChatRemoteDataSource: ошибка gRPC в sendLocationMessage', e);
+      throwGrpcError(e, 'Ошибка отправки местоположения');
+    } catch (e) {
+      Logs().e('ChatRemoteDataSource: ошибка в sendLocationMessage', e);
+      throw ApiFailure('Ошибка отправки местоположения');
     }
   }
 
@@ -431,11 +700,15 @@ class ChatRemoteDataSource implements IChatRemoteDataSource {
   }
 
   @override
-  Future<void> sendTyping(int peerUserId) async {
+  Future<void> sendTyping({int? peerUserId, int? peerGroupId}) async {
     try {
-      final req = chatpb.SendTypingRequest(
-        peer: commonpb.Peer(userId: Int64(peerUserId)),
-      );
+      final commonpb.Peer peer;
+      if (peerGroupId != null && peerGroupId > 0) {
+        peer = commonpb.Peer(groupId: Int64(peerGroupId));
+      } else {
+        peer = commonpb.Peer(userId: Int64(peerUserId ?? 0));
+      }
+      final req = chatpb.SendTypingRequest(peer: peer);
       await _authGuard.execute(() => _client.sendTyping(req));
     } on GrpcError catch (e) {
       Logs().e('ChatRemoteDataSource: ошибка sendTyping', e);
@@ -479,6 +752,109 @@ class ChatRemoteDataSource implements IChatRemoteDataSource {
     } catch (e) {
       Logs().e('ChatRemoteDataSource: ошибка в setChatNotifications', e);
       throw ApiFailure('Ошибка настройки уведомлений');
+    }
+  }
+
+  @override
+  Future<void> setChatTop({required int listId, required bool pin}) async {
+    Logs().d('ChatRemoteDataSource: setChatTop listId=$listId pin=$pin');
+    try {
+      final req = chatpb.SetChatTopRequest()
+        ..listId = Int64(listId)
+        ..type = pin ? 1 : 2;
+      await _authGuard.execute(() => _client.setChatTop(req));
+    } on GrpcError catch (e) {
+      Logs().e('ChatRemoteDataSource: ошибка gRPC в setChatTop', e);
+      throwGrpcError(e, 'Ошибка закрепления чата');
+    } catch (e) {
+      Logs().e('ChatRemoteDataSource: ошибка в setChatTop', e);
+      throw ApiFailure('Ошибка закрепления чата');
+    }
+  }
+
+  @override
+  Future<void> leaveGroup(int groupId) async {
+    Logs().d('ChatRemoteDataSource: leaveGroup groupId=$groupId');
+    try {
+      final req = chatpb.LeaveGroupRequest(groupId: Int64(groupId));
+      await _authGuard.execute(() => _client.leaveGroup(req));
+    } on GrpcError catch (e) {
+      Logs().e('ChatRemoteDataSource: ошибка gRPC в leaveGroup', e);
+      throwGrpcError(e, 'Не удалось выйти из группы');
+    } catch (e) {
+      Logs().e('ChatRemoteDataSource: ошибка в leaveGroup', e);
+      throw ApiFailure('Не удалось выйти из группы');
+    }
+  }
+
+  @override
+  Future<({List<OvertGroupListing> items, bool hasMore})> searchPublicGroups({
+    required String nameQuery,
+    required int page,
+  }) async {
+    Logs().d(
+      'ChatRemoteDataSource: searchPublicGroups page=$page name="$nameQuery"',
+    );
+    try {
+      final req = chatpb.SearchPublicGroupsRequest(
+        nameQuery: nameQuery,
+        page: page,
+      );
+      final resp = await _authGuard.execute(() => _client.searchPublicGroups(req));
+      final items = resp.items
+          .map(
+            (e) => OvertGroupListing(
+              id: e.id.toInt(),
+              type: e.type,
+              name: e.name,
+              avatarUrl: e.avatar,
+              description: e.description,
+              memberCount: e.memberCount,
+              maxNum: e.maxNum,
+              createdAtSec: e.createdAt.toInt(),
+              isMember: e.isMember,
+            ),
+          )
+          .toList();
+      return (items: items, hasMore: resp.hasMore);
+    } on GrpcError catch (e) {
+      Logs().e('ChatRemoteDataSource: gRPC searchPublicGroups', e);
+      throwGrpcError(e, 'Ошибка поиска групп');
+    } catch (e) {
+      Logs().e('ChatRemoteDataSource: searchPublicGroups', e);
+      throw ApiFailure('Ошибка поиска групп');
+    }
+  }
+
+  @override
+  Future<void> requestToJoinGroup(int groupId) async {
+    Logs().d('ChatRemoteDataSource: requestToJoinGroup groupId=$groupId');
+    try {
+      final req = chatpb.RequestToJoinGroupRequest(groupId: Int64(groupId));
+      await _authGuard.execute(() => _client.requestToJoinGroup(req));
+    } on GrpcError catch (e) {
+      Logs().e('ChatRemoteDataSource: gRPC requestToJoinGroup', e);
+      throwGrpcError(e, 'Не удалось отправить заявку');
+    } catch (e) {
+      Logs().e('ChatRemoteDataSource: requestToJoinGroup', e);
+      throw ApiFailure('Не удалось отправить заявку');
+    }
+  }
+
+  @override
+  Future<void> clearUnread({int? peerUserId, int? peerGroupId}) async {
+    try {
+      final peer = peerGroupId != null && peerGroupId > 0
+          ? commonpb.Peer(groupId: Int64(peerGroupId))
+          : commonpb.Peer(userId: Int64(peerUserId ?? 0));
+      final req = chatpb.ClearUnreadRequest(peer: peer);
+      await _authGuard.execute(() => _client.clearUnread(req));
+    } on GrpcError catch (e) {
+      Logs().e('ChatRemoteDataSource: ошибка gRPC в clearUnread', e);
+      throwGrpcError(e, 'Ошибка сброса непрочитанных');
+    } catch (e) {
+      Logs().e('ChatRemoteDataSource: ошибка в clearUnread', e);
+      throw ApiFailure('Ошибка сброса непрочитанных');
     }
   }
 

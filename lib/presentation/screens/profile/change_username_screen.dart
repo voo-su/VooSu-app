@@ -82,7 +82,7 @@ class _ChangeUsernameScreenState extends State<ChangeUsernameScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Латиница, цифры, _ и —, 3–20 символов',
+                'Латиница, цифры, _ и -, 3–20 символов',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),

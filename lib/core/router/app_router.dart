@@ -5,12 +5,18 @@ import 'package:voosu/presentation/widgets/side_navigation.dart';
 abstract final class AppRoutes {
   static const String chat = 'chat';
   static const String projects = 'projects';
+  static const String contacts = 'contacts';
+  static const String searchGroups = 'search_groups';
+  static const String userSearch = 'user_search';
   static const String menu = 'menu';
   static const String profile = 'profile';
 
   static const Set<String> _validTabs = {
     chat,
     projects,
+    contacts,
+    searchGroups,
+    userSearch,
     menu,
     profile,
   };
@@ -23,6 +29,12 @@ abstract final class AppRoutes {
         return NavDestination.chat;
       case projects:
         return NavDestination.projects;
+      case contacts:
+        return NavDestination.contacts;
+      case searchGroups:
+        return NavDestination.searchGroups;
+      case userSearch:
+        return NavDestination.userSearch;
       case menu:
         return NavDestination.menu;
       case profile:
@@ -38,6 +50,12 @@ abstract final class AppRoutes {
         return '/$chat';
       case NavDestination.projects:
         return '/$projects';
+      case NavDestination.contacts:
+        return '/$contacts';
+      case NavDestination.searchGroups:
+        return '/$searchGroups';
+      case NavDestination.userSearch:
+        return '/$userSearch';
       case NavDestination.menu:
         return '/$menu';
       case NavDestination.profile:

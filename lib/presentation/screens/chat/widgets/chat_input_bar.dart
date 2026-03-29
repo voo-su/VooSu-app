@@ -6,19 +6,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:voosu/core/attachment_type_helper.dart';
+import 'package:voosu/core/chat_upload_limits.dart';
 import 'package:voosu/core/client_local_id.dart';
 import 'package:voosu/core/file_stream.dart';
 import 'package:voosu/domain/entities/attachment_upload.dart';
+import 'package:voosu/domain/entities/chat_mention_member.dart';
+import 'package:voosu/domain/entities/group_message_mention.dart';
 import 'package:voosu/domain/entities/message.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_bloc.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_event.dart';
 
-const int _chatAttachmentMaxBytes = 10 * 1024 * 1024;
-const int _largeFileThresholdBytes = 5 * 1024 * 1024;
-
 typedef OnSendMessage = void Function(
   String text,
-  {List<AttachmentUpload>? attachments}
+  {List<AttachmentUpload>? attachments, GroupMessageMention? mention}
 );
 
 typedef OnUploadFile = Future<int?> Function(
@@ -52,6 +52,10 @@ class ChatInputBar extends StatefulWidget {
   final OnSendWithLargeFiles? onSendWithLargeFiles;
   final String? hintText;
   final VoidCallback? onCreatePoll;
+  final VoidCallback? onStickers;
+  final VoidCallback? onSendCode;
+  final VoidCallback? onSendLocation;
+  final List<ChatMentionMember> mentionMembers;
 
   const ChatInputBar({
     super.key,
@@ -66,10 +70,21 @@ class ChatInputBar extends StatefulWidget {
     this.onSendWithLargeFiles,
     this.hintText,
     this.onCreatePoll,
+    this.onStickers,
+    this.onSendCode,
+    this.onSendLocation,
+    this.mentionMembers = const [],
   });
 
   @override
   State<ChatInputBar> createState() => _ChatInputBarState();
+}
+
+class _MentionSession {
+  _MentionSession({required this.atIndex, required this.query});
+
+  final int atIndex;
+  final String query;
 }
 
 class _ChatInputBarState extends State<ChatInputBar> {
@@ -77,12 +92,229 @@ class _ChatInputBarState extends State<ChatInputBar> {
   bool _isDraggingFile = false;
   bool _showEmojiPicker = false;
 
+  final LayerLink _mentionLayerLink = LayerLink();
+  OverlayEntry? _mentionOverlay;
+  List<ChatMentionMember> _mentionFiltered = [];
+  _MentionSession? _mentionSession;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_onControllerChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onControllerChanged);
+    _removeMentionOverlay();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(ChatInputBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.mentionMembers.isEmpty && oldWidget.mentionMembers.isNotEmpty) {
+      _removeMentionOverlay();
+    }
+  }
+
+  _MentionSession? _parseMentionSession(String text, int cursor) {
+    if (cursor < 0 || cursor > text.length) {
+      return null;
+    }
+    var i = cursor;
+    while (i > 0) {
+      final prev = text[i - 1];
+      if (prev == ' ' || prev == '\n') {
+        break;
+      }
+      i--;
+    }
+    final wordStart = i;
+    if (wordStart >= cursor) {
+      return null;
+    }
+    if (wordStart >= text.length || text[wordStart] != '@') {
+      return null;
+    }
+    final q = text.substring(wordStart + 1, cursor);
+    if (q.contains(' ') || q.contains('\n')) {
+      return null;
+    }
+    return _MentionSession(atIndex: wordStart, query: q);
+  }
+
+  List<ChatMentionMember> _filterMentionMembers(String q) {
+    final lq = q.toLowerCase();
+    return widget.mentionMembers
+        .where((m) {
+          if (m.userId == 0) {
+            if (lq.isEmpty) {
+              return true;
+            }
+            return 'all'.startsWith(lq) || 'все'.startsWith(lq);
+          }
+          final un = m.username.toLowerCase();
+          if (un.startsWith(lq)) {
+            return true;
+          }
+          return m.displayLabel.toLowerCase().contains(lq);
+        })
+        .take(12)
+        .toList();
+  }
+
+  void _removeMentionOverlay() {
+    _mentionOverlay?.remove();
+    _mentionOverlay = null;
+    _mentionFiltered = [];
+    _mentionSession = null;
+  }
+
+  Widget _buildMentionOverlay(BuildContext context) {
+    final theme = Theme.of(context);
+    final items = _mentionFiltered;
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerDown: (_) => _removeMentionOverlay(),
+          ),
+        ),
+        CompositedTransformFollower(
+          link: _mentionLayerLink,
+          showWhenUnlinked: false,
+          targetAnchor: Alignment.topLeft,
+          followerAnchor: Alignment.bottomLeft,
+          offset: const Offset(0, -6),
+          child: Material(
+            elevation: 8,
+            borderRadius: BorderRadius.circular(12),
+            clipBehavior: Clip.antiAlias,
+            color: theme.colorScheme.surfaceContainerHigh,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 300, maxHeight: 260),
+              child: ListView(
+                padding: EdgeInsets.zero,
+                shrinkWrap: true,
+                children: [
+                  for (final m in items)
+                    ListTile(
+                      dense: true,
+                      title: Text(
+                        m.userId == 0
+                            ? '@all - ${m.displayLabel}'
+                            : '@${m.username}',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: m.userId != 0
+                          ? Text(
+                              m.displayLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall,
+                            )
+                          : null,
+                      onTap: () {
+                        _applyMention(m);
+                        _removeMentionOverlay();
+                      },
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showOrUpdateMentionOverlay(List<ChatMentionMember> items) {
+    if (!mounted) {
+      return;
+    }
+    _mentionFiltered = items;
+    final overlayState = Overlay.maybeOf(context);
+    if (overlayState == null) {
+      return;
+    }
+    if (_mentionOverlay == null) {
+      _mentionOverlay = OverlayEntry(
+        builder: (ctx) => _buildMentionOverlay(ctx),
+      );
+      overlayState.insert(_mentionOverlay!);
+    } else {
+      _mentionOverlay!.markNeedsBuild();
+    }
+  }
+
+  void _onControllerChanged() {
+    if (!mounted) {
+      return;
+    }
+    if (widget.mentionMembers.isEmpty || !widget.isEnabled) {
+      _removeMentionOverlay();
+      return;
+    }
+    final text = widget.controller.text;
+    final sel = widget.controller.selection;
+    if (!sel.isValid || !sel.isCollapsed) {
+      _removeMentionOverlay();
+      return;
+    }
+    final cursor = sel.baseOffset;
+    final session = _parseMentionSession(text, cursor);
+    if (session == null) {
+      _removeMentionOverlay();
+      _mentionSession = null;
+      return;
+    }
+    _mentionSession = session;
+    final filtered = _filterMentionMembers(session.query);
+    if (filtered.isEmpty) {
+      _removeMentionOverlay();
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      _showOrUpdateMentionOverlay(filtered);
+    });
+  }
+
+  void _applyMention(ChatMentionMember m) {
+    final session = _mentionSession;
+    if (session == null) {
+      return;
+    }
+    final text = widget.controller.text;
+    final sel = widget.controller.selection;
+    if (!sel.isValid || !sel.isCollapsed) {
+      return;
+    }
+    final cursor = sel.baseOffset;
+    final before = text.substring(0, session.atIndex);
+    final after = text.substring(cursor);
+    final insert = m.userId == 0 ? '@all ' : '@${m.username} ';
+    final newText = before + insert + after;
+    final newOffset = before.length + insert.length;
+    widget.controller.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: newOffset),
+    );
+  }
+
   void _toggleEmojiPicker() {
     if (!widget.isEnabled) return;
     setState(() => _showEmojiPicker = !_showEmojiPicker);
   }
 
   void _send() async {
+    _removeMentionOverlay();
     final text = widget.controller.text.trim();
     final hasFiles = _selectedFiles.isNotEmpty;
     if (text.isEmpty && !hasFiles) {
@@ -103,8 +335,20 @@ class _ChatInputBarState extends State<ChatInputBar> {
           return;
         }
 
+        if (f.size > 0 && f.size > kChatComposeFileMaxBytes) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Файлы размером более 200 МБ нельзя загружать'),
+              ),
+            );
+          }
+
+          return;
+        }
+
         if (f.path != null &&
-            f.size > _largeFileThresholdBytes &&
+            f.size > kChatLargeFileThresholdBytes &&
             widget.uploadLargeFile == null) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -123,19 +367,19 @@ class _ChatInputBarState extends State<ChatInputBar> {
     if (hasFiles) {
       for (final f in _selectedFiles) {
         if (f.path != null &&
-            f.size > _largeFileThresholdBytes &&
+            f.size > kChatLargeFileThresholdBytes &&
             widget.uploadLargeFile != null) {
           largeFileRefs.add(
             LargeFileRef(path: f.path!, filename: f.name, size: f.size),
           );
         } else if (f.bytes != null && f.bytes!.isNotEmpty) {
-          if (f.bytes!.length <= _chatAttachmentMaxBytes) {
+          if (f.bytes!.length <= kChatInMemoryAttachmentMaxBytes) {
             smallFilesToUpload.add((filename: f.name, bytes: f.bytes!));
           }
         } else if (f.path != null) {
           try {
             final bytes = await readFileBytes(f.path!);
-            if (bytes.length <= _chatAttachmentMaxBytes) {
+            if (bytes.length <= kChatInMemoryAttachmentMaxBytes) {
               smallFilesToUpload.add((filename: f.name, bytes: bytes));
             } else if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -305,7 +549,11 @@ class _ChatInputBarState extends State<ChatInputBar> {
     final attachments = uploadedAttachments.isEmpty
         ? null
         : uploadedAttachments;
-    widget.onSendMessage(text, attachments: attachments);
+    GroupMessageMention? mention;
+    if (widget.mentionMembers.isNotEmpty) {
+      mention = extractGroupMessageMention(text, widget.mentionMembers);
+    }
+    widget.onSendMessage(text, attachments: attachments, mention: mention);
     widget.controller.clear();
     setState(() => _selectedFiles.clear());
   }
@@ -325,6 +573,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
     }
 
     final toAdd = <PlatformFile>[];
+    var warnedOversize = false;
     for (final file in result.files) {
       if (file.path == null && (file.bytes == null || file.bytes!.isEmpty)) {
         if (mounted) {
@@ -333,6 +582,17 @@ class _ChatInputBarState extends State<ChatInputBar> {
           );
         }
 
+        continue;
+      }
+      if (file.size > 0 && file.size > kChatComposeFileMaxBytes) {
+        if (mounted && !warnedOversize) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Файлы размером более 200 МБ нельзя загружать'),
+            ),
+          );
+          warnedOversize = true;
+        }
         continue;
       }
       toAdd.add(file);
@@ -359,6 +619,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
 
     final messenger = ScaffoldMessenger.maybeOf(context);
     final toAdd = <PlatformFile>[];
+    var warnedOversize = false;
     for (final item in details.files) {
       if (item is! DropItemFile) {
         continue;
@@ -373,6 +634,17 @@ class _ChatInputBarState extends State<ChatInputBar> {
         }
 
         final size = await item.length();
+        if (size > kChatComposeFileMaxBytes) {
+          if (mounted && messenger != null && !warnedOversize) {
+            messenger.showSnackBar(
+              const SnackBar(
+                content: Text('Файлы размером более 200 МБ нельзя загружать'),
+              ),
+            );
+            warnedOversize = true;
+          }
+          continue;
+        }
         final path = item.path;
         if (path.isEmpty) {
           final bytes = await item.readAsBytes();
@@ -380,7 +652,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
             continue;
           }
 
-          if (bytes.length > _chatAttachmentMaxBytes) {
+          if (bytes.length > kChatInMemoryAttachmentMaxBytes) {
             if (mounted && messenger != null) {
               messenger.showSnackBar(
                 SnackBar(content: Text('Файл слишком большой: $name')),
@@ -391,9 +663,9 @@ class _ChatInputBarState extends State<ChatInputBar> {
           }
           toAdd.add(PlatformFile(name: name, size: bytes.length, bytes: bytes));
         } else {
-          if (size > _largeFileThresholdBytes &&
+          if (size > kChatLargeFileThresholdBytes &&
               widget.uploadLargeFile == null &&
-              size > _chatAttachmentMaxBytes) {
+              size > kChatInMemoryAttachmentMaxBytes) {
             if (mounted && messenger != null) {
               messenger.showSnackBar(
                 const SnackBar(
@@ -404,7 +676,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
 
             continue;
           }
-          if (size <= _chatAttachmentMaxBytes) {
+          if (size <= kChatInMemoryAttachmentMaxBytes) {
             final bytes = await item.readAsBytes();
             toAdd.add(
               PlatformFile(
@@ -685,27 +957,33 @@ class _ChatInputBarState extends State<ChatInputBar> {
 
                               return KeyEventResult.ignored;
                             },
-                            child: TextField(
-                              controller: widget.controller,
-                              enabled: widget.isEnabled,
-                              minLines: 1,
-                              maxLines: 5,
-                              textCapitalization: TextCapitalization.sentences,
-                              style: theme.textTheme.bodyLarge?.copyWith(
-                                fontSize: 15,
-                              ),
-                              decoration: InputDecoration(
-                                hintText: widget.hintText ?? 'Сообщение',
-                                hintStyle: theme.textTheme.bodyLarge?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant
-                                      .withValues(alpha: 0.65),
+                            child: CompositedTransformTarget(
+                              link: _mentionLayerLink,
+                              child: TextField(
+                                controller: widget.controller,
+                                enabled: widget.isEnabled,
+                                minLines: 1,
+                                maxLines: 5,
+                                textCapitalization: TextCapitalization.sentences,
+                                style: theme.textTheme.bodyLarge?.copyWith(
                                   fontSize: 15,
                                 ),
-                                border: InputBorder.none,
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 10,
-                                ).copyWith(left: 4, right: 8),
+                                decoration: InputDecoration(
+                                  hintText: widget.mentionMembers.isNotEmpty
+                                      ? (widget.hintText ??
+                                            'Сообщение · @ для упоминания')
+                                      : (widget.hintText ?? 'Сообщение'),
+                                  hintStyle: theme.textTheme.bodyLarge?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant
+                                        .withValues(alpha: 0.65),
+                                    fontSize: 15,
+                                  ),
+                                  border: InputBorder.none,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 10,
+                                  ).copyWith(left: 4, right: 8),
+                                ),
                               ),
                             ),
                           ),
@@ -721,6 +999,60 @@ class _ChatInputBarState extends State<ChatInputBar> {
                                 height: 44,
                                 child: Icon(
                                   Icons.emoji_emotions_outlined,
+                                  size: 22,
+                                ),
+                              ),
+                            ),
+                          ),
+                        if (widget.isEnabled && widget.onStickers != null)
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () {
+                                setState(() => _showEmojiPicker = false);
+                                widget.onStickers!();
+                              },
+                              borderRadius: BorderRadius.circular(20),
+                              child: const SizedBox(
+                                width: 44,
+                                height: 44,
+                                child: Icon(
+                                  Icons.interests_outlined,
+                                  size: 22,
+                                ),
+                              ),
+                            ),
+                          ),
+                        if (widget.isEnabled && widget.onSendCode != null)
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () {
+                                setState(() => _showEmojiPicker = false);
+                                widget.onSendCode!();
+                              },
+                              borderRadius: BorderRadius.circular(20),
+                              child: const SizedBox(
+                                width: 44,
+                                height: 44,
+                                child: Icon(Icons.code, size: 22),
+                              ),
+                            ),
+                          ),
+                        if (widget.isEnabled && widget.onSendLocation != null)
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () {
+                                setState(() => _showEmojiPicker = false);
+                                widget.onSendLocation!();
+                              },
+                              borderRadius: BorderRadius.circular(20),
+                              child: const SizedBox(
+                                width: 44,
+                                height: 44,
+                                child: Icon(
+                                  Icons.location_on_outlined,
                                   size: 22,
                                 ),
                               ),

@@ -1,11 +1,13 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:voosu/core/layout/responsive.dart';
 import 'package:voosu/presentation/screens/auth/bloc/auth_bloc.dart';
 import 'package:voosu/presentation/screens/auth/bloc/auth_event.dart';
 import 'package:voosu/presentation/screens/auth/bloc/auth_state.dart';
+import 'package:voosu/presentation/screens/legal/terms_of_use_screen.dart';
 
 const _kResendCooldownSec = 200;
 
@@ -20,12 +22,28 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _codeController = TextEditingController();
+  late final TapGestureRecognizer _termsTapRecognizer;
 
   Timer? _resendTimer;
   int _resendSecondsLeft = 0;
 
   @override
+  void initState() {
+    super.initState();
+    _termsTapRecognizer = TapGestureRecognizer()..onTap = _openTermsOfUse;
+  }
+
+  void _openTermsOfUse() {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => const TermsOfUseScreen(),
+      ),
+    );
+  }
+
+  @override
   void dispose() {
+    _termsTapRecognizer.dispose();
     _resendTimer?.cancel();
     _emailController.dispose();
     _codeController.dispose();
@@ -156,8 +174,14 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildEmailStep(BuildContext context, AuthState state) {
-    final termsStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
-      color: Theme.of(context).colorScheme.onSurfaceVariant,
+    final theme = Theme.of(context);
+    final termsMuted = theme.textTheme.bodySmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
+    final termsLink = theme.textTheme.bodySmall?.copyWith(
+      color: theme.colorScheme.primary,
+      fontWeight: FontWeight.w600,
+      decoration: TextDecoration.underline,
     );
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -237,9 +261,18 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
         ),
         const SizedBox(height: 12),
-        Text(
-          'Нажимая «Войти» вы соглашаетесь с условиями использования',
-          style: termsStyle,
+        Text.rich(
+          TextSpan(
+            style: termsMuted,
+            children: [
+              const TextSpan(text: 'Нажимая «Войти» вы соглашаетесь с '),
+              TextSpan(
+                text: 'условиями использования',
+                style: termsLink,
+                recognizer: _termsTapRecognizer,
+              ),
+            ],
+          ),
           textAlign: TextAlign.center,
         ),
       ],

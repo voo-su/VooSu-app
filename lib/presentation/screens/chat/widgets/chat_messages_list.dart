@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:voosu/core/chat_msg_type.dart';
 import 'package:voosu/domain/entities/message.dart';
 import 'package:voosu/presentation/screens/auth/bloc/auth_bloc.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_bloc.dart';
@@ -7,10 +8,12 @@ import 'package:voosu/presentation/screens/chat/bloc/chat_event.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_state.dart';
 import 'package:voosu/presentation/screens/chat/widgets/chat_delete_scope_dialog.dart';
 import 'package:voosu/presentation/screens/chat/widgets/chat_empty_placeholders.dart';
+import 'package:voosu/presentation/screens/chat/widgets/login_message_card.dart';
 import 'package:voosu/presentation/screens/chat/widgets/message_bubble.dart';
 import 'package:voosu/presentation/screens/chat/widgets/queued_message_bubble.dart';
 import 'package:voosu/presentation/screens/chat/widgets/sending_message_bubble.dart';
 import 'package:voosu/presentation/screens/chat/widgets/service_message_widget.dart';
+import 'package:voosu/presentation/screens/chat/widgets/system_chat_message_row.dart';
 import 'package:voosu/presentation/widgets/loading_placeholder.dart';
 
 Message? _findMessage(List<Message> messages, int id) {
@@ -31,6 +34,8 @@ class ChatMessagesList extends StatelessWidget {
   final Future<void> Function(int fileId, String filename)?
   onDownloadAttachment;
   final Future<List<int>?> Function(int fileId)? onLoadAttachmentContent;
+  final void Function(int userId)? onSystemMessageUserTap;
+  final void Function(int messageId)? onCollectStickerFromMessage;
 
   const ChatMessagesList({
     super.key,
@@ -42,6 +47,8 @@ class ChatMessagesList extends StatelessWidget {
     this.onVotePoll,
     this.onDownloadAttachment,
     this.onLoadAttachmentContent,
+    this.onSystemMessageUserTap,
+    this.onCollectStickerFromMessage,
   });
 
   @override
@@ -88,8 +95,18 @@ class ChatMessagesList extends StatelessWidget {
         itemBuilder: (context, index) {
           if (index < messagesCount) {
             final message = state.messages[index];
+            if (message.usesSystemRowLayout) {
+              return SystemChatMessageRow(
+                message: message,
+                onUserTap: onSystemMessageUserTap,
+              );
+            }
             if (message.isSystemMessage) {
               return ServiceMessageWidget(message: message);
+            }
+
+            if (message.msgType == ChatMsgType.login) {
+              return LoginMessageCard(message: message);
             }
 
             final isFromMe = currentUserInt != 0 && message.senderId == currentUserInt;
@@ -125,6 +142,10 @@ class ChatMessagesList extends StatelessWidget {
               onForward: onForward != null
                 ? () => onForward?.call(message)
                 : null,
+              onAddStickerToCollection:
+                  message.canSaveAsMySticker && onCollectStickerFromMessage != null
+                  ? () => onCollectStickerFromMessage!(message.id)
+                  : null,
               onInlineButtonPressed: onInlineButtonPressed,
               onVotePoll: onVotePoll,
               onDownloadAttachment: onDownloadAttachment,

@@ -9,7 +9,9 @@ import 'package:voosu/core/jwt_util.dart';
 import 'package:voosu/core/log/logs.dart';
 import 'package:voosu/data/data_sources/local/chat_notification_settings_local_data_source.dart';
 import 'package:voosu/data/data_sources/local/user_local_data_source.dart';
+import 'package:voosu/data/services/upload_queue_service.dart';
 import 'package:voosu/data/services/pts_sync_service.dart';
+import 'package:voosu/domain/usecases/account/get_confidentiality_settings_usecase.dart';
 import 'package:voosu/domain/usecases/auth/email_auth_usecases.dart';
 import 'package:voosu/domain/usecases/auth/logout_usecase.dart';
 import 'package:voosu/domain/usecases/auth/refresh_token_usecase.dart';
@@ -27,6 +29,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final AuthGuard authGuard;
   final PtsSyncService? ptsSyncService;
   final ChatNotificationSettingsLocalDataSource? chatNotificationSettings;
+  final GetConfidentialitySettingsUseCase? getConfidentialitySettingsUseCase;
+  final UploadQueueService? uploadQueueService;
 
   Timer? _backgroundRefreshTimer;
 
@@ -40,6 +44,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     required this.authGuard,
     this.ptsSyncService,
     this.chatNotificationSettings,
+    this.getConfidentialitySettingsUseCase,
+    this.uploadQueueService,
   }) : super(const AuthState()) {
     authGuard.setOnSessionExpired(() => add(const AuthLogoutRequested()));
     on<AuthLoginCodeRequested>(_onLoginCodeRequested);
@@ -55,6 +61,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthProfilePhotoUpdated>(_onProfilePhotoUpdated);
     on<AuthUsernameUpdated>(_onUsernameUpdated);
     on<AuthProfilePersonalUpdated>(_onProfilePersonalUpdated);
+    on<AuthMessagePrivacyUpdated>(_onMessagePrivacyUpdated);
   }
 
   @override
@@ -146,6 +153,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         final user = tokenStorage.user;
 
         if (user == null) {
+          uploadQueueService?.clear();
           tokenStorage.clearTokens();
           emit(
             state.copyWith(
@@ -167,6 +175,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
             error: null,
           ),
         );
+        unawaited(_pullMessagePrivacyAfterAuth());
         return;
       } catch (e) {
         lastError = e;
@@ -186,6 +195,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     }
 
     if (wasUnauthorized) {
+      uploadQueueService?.clear();
       tokenStorage.clearTokens();
       emit(
         state.copyWith(
@@ -205,6 +215,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           error: lastError?.toString().replaceAll('Exception: ', ''),
         ),
       );
+      unawaited(_pullMessagePrivacyAfterAuth());
     }
   }
 
@@ -344,6 +355,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           clearLoginCodeFlow: true,
         ),
       );
+      unawaited(_pullMessagePrivacyAfterAuth());
     } catch (e) {
       Logs().e('AuthBloc: ошибка входа', e);
       emit(
@@ -380,6 +392,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     } catch (e) {
       if (e is UnauthorizedFailure) {
         Logs().w('AuthBloc: недействительный refresh token');
+        uploadQueueService?.clear();
         tokenStorage.clearTokens();
         emit(
           state.copyWith(
@@ -417,6 +430,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         Logs().w(
           'AuthBloc: недействительный refresh token при фоновом рефреше',
         );
+        uploadQueueService?.clear();
         tokenStorage.clearTokens();
         emit(
           state.copyWith(
@@ -443,6 +457,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     } catch (e) {
       Logs().w('AuthBloc: ошибка при выходе на сервере (токены очищены)', e);
     } finally {
+      uploadQueueService?.clear();
       tokenStorage.clearTokens();
       await ptsSyncService?.stopSync();
       emit(
@@ -504,6 +519,28 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     );
     tokenStorage.saveUser(newUser);
     emit(state.copyWith(user: newUser));
+  }
+
+  void _onMessagePrivacyUpdated(
+    AuthMessagePrivacyUpdated event,
+    Emitter<AuthState> emit,
+  ) {
+    final u = state.user;
+    if (u == null) return;
+    final newUser = u.copyWith(messagePrivacy: event.messagePrivacy);
+    tokenStorage.saveUser(newUser);
+    emit(state.copyWith(user: newUser));
+  }
+
+  Future<void> _pullMessagePrivacyAfterAuth() async {
+    final uc = getConfidentialitySettingsUseCase;
+    if (uc == null) return;
+    try {
+      final v = await uc();
+      add(AuthMessagePrivacyUpdated(v));
+    } catch (e) {
+      Logs().d('AuthBloc: message_privacy не подтянут', e);
+    }
   }
 
   Future<bool> _checkVersion(GrpcChannelManager channelManager) async {

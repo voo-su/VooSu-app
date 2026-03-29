@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:voosu/core/client_local_id.dart';
 import 'package:voosu/core/failures.dart';
 import 'package:voosu/core/log/logs.dart';
+import 'package:voosu/data/data_sources/local/chat_draft_local_data_source.dart';
 import 'package:voosu/data/data_sources/local/chat_notification_settings_local_data_source.dart';
 import 'package:voosu/data/services/notification_sound_service.dart';
 import 'package:voosu/domain/entities/attachment_upload.dart';
@@ -19,15 +20,24 @@ import 'package:voosu/domain/usecases/chat/delete_chat_usecase.dart';
 import 'package:voosu/domain/usecases/chat/delete_chat_messages_usecase.dart';
 import 'package:voosu/domain/usecases/chat/get_chat_messages_usecase.dart';
 import 'package:voosu/domain/entities/pending_queue_item.dart';
+import 'package:voosu/domain/entities/user_typing_payload.dart';
 import 'package:voosu/domain/usecases/chat/get_chats_usecase.dart';
+import 'package:voosu/domain/usecases/chat/get_group_mention_members_usecase.dart';
 import 'package:voosu/domain/usecases/chat/get_pending_for_chat_usecase.dart';
 import 'package:voosu/domain/usecases/chat/remove_pending_message_usecase.dart';
 import 'package:voosu/domain/usecases/chat/save_pending_message_usecase.dart';
 import 'package:voosu/domain/usecases/chat/send_chat_message_usecase.dart';
+import 'package:voosu/domain/usecases/chat/send_chat_code_usecase.dart';
+import 'package:voosu/domain/usecases/chat/send_chat_location_usecase.dart';
+import 'package:voosu/domain/usecases/chat/send_chat_sticker_usecase.dart';
 import 'package:voosu/domain/usecases/chat/send_chat_typing_usecase.dart';
 import 'package:voosu/domain/usecases/chat/report_inline_callback_usecase.dart';
 import 'package:voosu/domain/usecases/chat/chat_poll_usecase.dart';
 import 'package:voosu/domain/usecases/chat/set_chat_notifications_usecase.dart';
+import 'package:voosu/domain/usecases/chat/set_chat_pin_usecase.dart';
+import 'package:voosu/domain/usecases/chat/leave_group_usecase.dart';
+import 'package:voosu/domain/usecases/chat/clear_unread_chat_usecase.dart';
+import 'package:voosu/domain/usecases/chat/collect_sticker_from_message_usecase.dart';
 import 'package:voosu/presentation/screens/auth/bloc/auth_bloc.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_event.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_state.dart';
@@ -39,23 +49,32 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   final CreateGroupChatUseCase createGroupChatUseCase;
   final GetChatMessagesUseCase getChatMessagesUseCase;
   final SendChatMessageUseCase sendChatMessageUseCase;
+  final SendChatStickerUseCase sendChatStickerUseCase;
+  final SendChatCodeUseCase sendChatCodeUseCase;
+  final SendChatLocationUseCase sendChatLocationUseCase;
   final SavePendingMessageUseCase savePendingMessageUseCase;
   final GetPendingForChatUseCase getPendingForChatUseCase;
+  final GetGroupMentionMembersUseCase getGroupMentionMembersUseCase;
   final RemovePendingMessageUseCase removePendingMessageUseCase;
   final DeleteChatMessagesUseCase deleteChatMessagesUseCase;
   final ClearChatHistoryUseCase clearChatHistoryUseCase;
   final DeleteChatUseCase deleteChatUseCase;
   final SendChatTypingUseCase sendChatTypingUseCase;
   final SetChatNotificationsUseCase setChatNotificationsUseCase;
+  final SetChatPinUseCase setChatPinUseCase;
+  final LeaveGroupUseCase leaveGroupUseCase;
+  final ClearUnreadChatUseCase clearUnreadChatUseCase;
+  final CollectStickerFromMessageUseCase collectStickerFromMessageUseCase;
   final ReportInlineCallbackUseCase reportInlineCallbackUseCase;
   final ChatPollUseCase chatPollUseCase;
+  final ChatDraftLocalDataSource chatDraftLocal;
   final AuthBloc authBloc;
   final NotificationSoundService? notificationSoundService;
   final ChatNotificationSettingsLocalDataSource? chatNotificationSettings;
   StreamSubscription<Message>? _newMessageSubscription;
   StreamSubscription<MessageDeletedPayload>? _messageDeletedSubscription;
   StreamSubscription<MessageReadPayload>? _messageReadSubscription;
-  StreamSubscription<int>? _userTypingSubscription;
+  StreamSubscription<UserTypingPayload>? _userTypingSubscription;
   StreamSubscription<Object?>? _chatListRefreshSubscription;
   StreamSubscription<Object?>? _syncRestoredSubscription;
   Timer? _typingClearTimer;
@@ -67,33 +86,47 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     required this.createGroupChatUseCase,
     required this.getChatMessagesUseCase,
     required this.sendChatMessageUseCase,
+    required this.sendChatStickerUseCase,
+    required this.sendChatCodeUseCase,
+    required this.sendChatLocationUseCase,
     required this.savePendingMessageUseCase,
     required this.getPendingForChatUseCase,
+    required this.getGroupMentionMembersUseCase,
     required this.removePendingMessageUseCase,
     required this.deleteChatMessagesUseCase,
     required this.clearChatHistoryUseCase,
     required this.deleteChatUseCase,
     required this.sendChatTypingUseCase,
     required this.setChatNotificationsUseCase,
+    required this.setChatPinUseCase,
+    required this.leaveGroupUseCase,
+    required this.clearUnreadChatUseCase,
+    required this.collectStickerFromMessageUseCase,
     required this.reportInlineCallbackUseCase,
     required this.chatPollUseCase,
+    required this.chatDraftLocal,
     required this.authBloc,
     this.notificationSoundService,
     this.chatNotificationSettings,
     Stream<Message>? newMessageStream,
     Stream<MessageDeletedPayload>? messageDeletedStream,
     Stream<MessageReadPayload>? messageReadStream,
-    Stream<int>? userTypingStream,
+    Stream<UserTypingPayload>? userTypingStream,
     Stream<Object?>? chatListRefreshStream,
     Stream<Object?>? syncRestoredStream,
   }) : super(const ChatState()) {
     on<ChatStarted>(_onStarted);
     on<ChatLoadChats>(_onLoadChats);
     on<ChatOpenWithUser>(_onOpenWithUser);
+    on<ChatOpenGroupById>(_onOpenGroupById);
     on<ChatCreateGroupRequested>(_onCreateGroupRequested);
     on<ChatSelectChat>(_onSelectChat);
+    on<ChatGroupMentionMembersLoaded>(_onGroupMentionMembersLoaded);
     on<ChatMessagesForChatLoaded>(_onMessagesForChatLoaded);
     on<ChatSendMessage>(_onSendMessage);
+    on<ChatSendSticker>(_onSendSticker);
+    on<ChatSendCode>(_onSendCode);
+    on<ChatSendLocation>(_onSendLocation);
     on<ChatStartSendingMessage>(_onStartSendingMessage);
     on<ChatUploadProgress>(_onUploadProgress);
     on<ChatUploadFileComplete>(_onUploadFileComplete);
@@ -103,8 +136,13 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<ChatClearReply>(_onClearReply);
     on<ChatForwardMessageToChat>(_onForwardMessageToChat);
     on<ChatClearError>(_onClearError);
+    on<ChatClearSnackbarHint>(_onClearSnackbarHint);
+    on<ChatCollectStickerFromMessage>(_onCollectStickerFromMessage);
     on<ChatBackToList>(_onBackToList);
     on<ChatToggleChatNotifications>(_onToggleChatNotifications);
+    on<ChatTogglePin>(_onTogglePin);
+    on<ChatLeaveGroup>(_onLeaveGroup);
+    on<ChatGroupLeftApplied>(_onGroupLeftApplied);
     on<ChatNewMessageReceived>(_onNewMessageReceived);
     on<ChatDeleteMessage>(_onDeleteMessage);
     on<ChatToggleMessageSelection>(_onToggleMessageSelection);
@@ -156,8 +194,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     }
 
     if (userTypingStream != null) {
-      _userTypingSubscription = userTypingStream.listen((userId) {
-        add(ChatUserTyping(userId));
+      _userTypingSubscription = userTypingStream.listen((payload) {
+        add(ChatUserTyping(payload));
       });
     }
 
@@ -196,6 +234,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         clearSelectedChat: true,
         clearSelection: true,
         clearReplyTo: true,
+        clearGroupMentionMembers: true,
       ),
     );
   }
@@ -204,7 +243,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     try {
       final cached = await getChatsUseCase.getCachedChats();
       if (cached.isNotEmpty) {
-        emit(state.copyWith(chats: cached, isLoading: false));
+        emit(state.copyWith(chats: sortChatsForList(cached), isLoading: false));
       }
     } catch (_) {}
     await _loadChatsInternal(emit);
@@ -230,7 +269,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       emit(
         state.copyWith(
           isLoading: false,
-          chats: chats,
+          chats: sortChatsForList(chats),
           error: silent ? state.error : null,
         ),
       );
@@ -248,11 +287,11 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       if (!silent) {
         emit(state.copyWith(
           isLoading: false,
-          chats: fallbackChats,
+          chats: sortChatsForList(fallbackChats),
           error: fallbackChats.isEmpty ? 'Ошибка загрузки чатов' : null,
         ));
       } else {
-        emit(state.copyWith(isLoading: false, chats: fallbackChats));
+        emit(state.copyWith(isLoading: false, chats: sortChatsForList(fallbackChats)));
       }
     }
   }
@@ -265,12 +304,60 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     try {
       final chat = await createChatUseCase(event.userId);
       final chats = await getChatsUseCase();
-      emit(state.copyWith(isLoading: false, chats: chats, selectedChat: chat));
+      emit(state.copyWith(isLoading: false, chats: sortChatsForList(chats), selectedChat: chat));
       await _loadMessagesForChat(chat, emit);
     } catch (e) {
       Logs().e('ChatBloc: ошибка открытия чата с пользователем', e);
       emit(state.copyWith(isLoading: false, error: 'Ошибка открытия чата'));
     }
+  }
+
+  Future<void> _onOpenGroupById(
+    ChatOpenGroupById event,
+    Emitter<ChatState> emit,
+  ) async {
+    Chat? chat;
+    for (final c in state.chats) {
+      if (c.isGroup && c.peerGroupId == event.groupId) {
+        chat = c;
+        break;
+      }
+    }
+
+    if (chat == null) {
+      emit(state.copyWith(isLoading: true, error: null));
+      try {
+        final list = await getChatsUseCase();
+        final sorted = sortChatsForList(list);
+        emit(state.copyWith(chats: sorted, isLoading: false));
+        for (final c in sorted) {
+          if (c.isGroup && c.peerGroupId == event.groupId) {
+            chat = c;
+            break;
+          }
+        }
+      } catch (e) {
+        Logs().e('ChatBloc: обновление чатов для группы', e);
+        emit(
+          state.copyWith(
+            isLoading: false,
+            error: 'Не удалось загрузить список чатов',
+          ),
+        );
+        return;
+      }
+    }
+
+    if (chat == null) {
+      emit(
+        state.copyWith(
+          error: 'Группа не в списке чатов. После одобрения заявки обновите чаты.',
+        ),
+      );
+      return;
+    }
+
+    add(ChatSelectChat(chat));
   }
 
   Future<void> _onCreateGroupRequested(
@@ -294,7 +381,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         userIds: event.userIds,
       );
       final chats = await getChatsUseCase();
-      emit(state.copyWith(isLoading: false, chats: chats, selectedChat: chat));
+      emit(state.copyWith(isLoading: false, chats: sortChatsForList(chats), selectedChat: chat));
       await _loadMessagesForChat(chat, emit);
     } catch (e) {
       Logs().e('ChatBloc: ошибка создания группового чата', e);
@@ -319,10 +406,21 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         isLoading: true,
         error: null,
         clearSelection: true,
-        clearTypingUserId: true,
+        clearTyping: true,
         clearReplyTo: true,
+        clearGroupMentionMembers: true,
       ),
     );
+
+    if (event.chat.isGroup) {
+      unawaited(_fetchGroupMentionMembers(event.chat.peerGroupId));
+    }
+
+    if (event.chat.unreadCount > 0) {
+      unawaited(
+        clearUnreadChatUseCase(event.chat).catchError((Object _) {}),
+      );
+    }
 
     try {
       final cached = await getChatMessagesUseCase.getCachedMessages(
@@ -334,6 +432,31 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       }
     } catch (_) {}
     unawaited(_loadAndEmitMessagesForChat(event.chat));
+  }
+
+  Future<void> _fetchGroupMentionMembers(int groupId) async {
+    if (groupId <= 0) {
+      return;
+    }
+    try {
+      final members = await getGroupMentionMembersUseCase(groupId);
+      add(
+        ChatGroupMentionMembersLoaded(groupId: groupId, members: members),
+      );
+    } catch (e) {
+      Logs().e('ChatBloc: не удалось загрузить участников для @', e);
+    }
+  }
+
+  void _onGroupMentionMembersLoaded(
+    ChatGroupMentionMembersLoaded event,
+    Emitter<ChatState> emit,
+  ) {
+    if (state.selectedChat?.isGroup != true ||
+        state.selectedChat!.peerGroupId != event.groupId) {
+      return;
+    }
+    emit(state.copyWith(groupMentionMembers: event.members));
   }
 
   Future<void> _loadAndEmitMessagesForChat(Chat chat) async {
@@ -387,7 +510,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     emit(
       state.copyWith(
         messages: merged,
-        chats: event.updatedChats,
+        chats: sortChatsForList(event.updatedChats),
         pendingQueue: event.pendingQueue,
         isLoading: false,
       ),
@@ -412,7 +535,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         state.copyWith(
           messages: messages,
           isLoading: false,
-          chats: updatedChats,
+          chats: sortChatsForList(updatedChats),
         ),
       );
       await _loadPendingQueueForChat(chat.id, emit);
@@ -672,6 +795,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         content: text.isEmpty ? '' : text,
         replyToMessageId: replyToId,
         attachments: event.attachments,
+        mention: chat.isGroup ? event.mention : null,
       );
       final updatedMessages = [...state.messages, message];
       emit(
@@ -730,6 +854,120 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     }
   }
 
+  Future<void> _onSendSticker(
+    ChatSendSticker event,
+    Emitter<ChatState> emit,
+  ) async {
+    final chat = state.selectedChat;
+    if (chat == null) {
+      emit(state.copyWith(error: 'Чат не выбран'));
+      return;
+    }
+
+    emit(state.copyWith(isSending: true, error: null));
+    try {
+      final replyToId = state.replyTo?.id ?? 0;
+      final message = await sendChatStickerUseCase(
+        peerUserId: chat.isGroup ? null : chat.peerUserId,
+        peerGroupId: chat.isGroup ? chat.peerGroupId : null,
+        stickerId: event.stickerId,
+        replyToMessageId: replyToId,
+      );
+      final updatedMessages = [...state.messages, message];
+      emit(
+        state.copyWith(
+          isSending: false,
+          messages: updatedMessages,
+          clearReplyTo: true,
+        ),
+      );
+      add(const ChatLoadChats(silent: true));
+    } catch (e) {
+      Logs().e('ChatBloc: ошибка отправки стикера', e);
+      emit(
+        state.copyWith(isSending: false, error: 'Ошибка отправки стикера'),
+      );
+    }
+  }
+
+  Future<void> _onSendCode(
+    ChatSendCode event,
+    Emitter<ChatState> emit,
+  ) async {
+    final chat = state.selectedChat;
+    if (chat == null) {
+      emit(state.copyWith(error: 'Чат не выбран'));
+      return;
+    }
+
+    emit(state.copyWith(isSending: true, error: null));
+    try {
+      final replyToId = state.replyTo?.id ?? 0;
+      final message = await sendChatCodeUseCase(
+        lang: event.lang,
+        code: event.code,
+        peerUserId: chat.isGroup ? null : chat.peerUserId,
+        peerGroupId: chat.isGroup ? chat.peerGroupId : null,
+        replyToMessageId: replyToId,
+      );
+      final updatedMessages = [...state.messages, message];
+      emit(
+        state.copyWith(
+          isSending: false,
+          messages: updatedMessages,
+          clearReplyTo: true,
+        ),
+      );
+      add(const ChatLoadChats(silent: true));
+    } catch (e) {
+      Logs().e('ChatBloc: ошибка отправки кода', e);
+      emit(
+        state.copyWith(isSending: false, error: 'Ошибка отправки кода'),
+      );
+    }
+  }
+
+  Future<void> _onSendLocation(
+    ChatSendLocation event,
+    Emitter<ChatState> emit,
+  ) async {
+    final chat = state.selectedChat;
+    if (chat == null) {
+      emit(state.copyWith(error: 'Чат не выбран'));
+      return;
+    }
+
+    emit(state.copyWith(isSending: true, error: null));
+    try {
+      final replyToId = state.replyTo?.id ?? 0;
+      final message = await sendChatLocationUseCase(
+        latitude: event.latitude,
+        longitude: event.longitude,
+        description: event.description,
+        peerUserId: chat.isGroup ? null : chat.peerUserId,
+        peerGroupId: chat.isGroup ? chat.peerGroupId : null,
+        replyToMessageId: replyToId,
+      );
+      final updatedMessages = [...state.messages, message];
+      emit(
+        state.copyWith(
+          isSending: false,
+          messages: updatedMessages,
+          clearReplyTo: true,
+        ),
+      );
+      add(const ChatLoadChats(silent: true));
+    } catch (e) {
+      Logs().e('ChatBloc: ошибка отправки местоположения', e);
+      emit(
+        state.copyWith(
+          isSending: false,
+          error: 'Ошибка отправки местоположения',
+        ),
+      );
+    }
+  }
+
   Future<void> _onCancelPendingFromQueue(
     ChatCancelPendingFromQueue event,
     Emitter<ChatState> emit,
@@ -748,6 +986,26 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
   void _onClearError(ChatClearError event, Emitter<ChatState> emit) {
     emit(state.copyWith(error: null));
+  }
+
+  void _onClearSnackbarHint(ChatClearSnackbarHint event, Emitter<ChatState> emit) {
+    emit(state.copyWith(clearSnackbarHint: true));
+  }
+
+  Future<void> _onCollectStickerFromMessage(
+    ChatCollectStickerFromMessage event,
+    Emitter<ChatState> emit,
+  ) async {
+    emit(state.copyWith(error: null));
+    try {
+      await collectStickerFromMessageUseCase(event.messageId);
+      emit(state.copyWith(snackbarHint: 'Стикер добавлен в коллекцию'));
+    } on Failure catch (e) {
+      emit(state.copyWith(error: e.message));
+    } catch (e, st) {
+      Logs().e('ChatBloc: collect sticker from message', e, st);
+      emit(state.copyWith(error: 'Не удалось сохранить стикер'));
+    }
   }
 
   void _onReplyToMessage(ChatReplyToMessage event, Emitter<ChatState> emit) {
@@ -827,7 +1085,98 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     final updatedChats = state.chats
         .map((c) => c.id == chat.id ? updatedChat : c)
         .toList();
-    emit(state.copyWith(chats: updatedChats));
+    emit(state.copyWith(chats: sortChatsForList(updatedChats)));
+  }
+
+  Future<void> _onTogglePin(
+    ChatTogglePin event,
+    Emitter<ChatState> emit,
+  ) async {
+    final chat = event.chat;
+    if (chat.listId <= 0) {
+      emit(state.copyWith(error: 'Обновите список чатов'));
+      return;
+    }
+    final wantPin = !chat.isPinned;
+    if (wantPin) {
+      final pinned = state.chats.where((c) => c.isPinned).length;
+      if (pinned >= 4) {
+        emit(state.copyWith(error: 'Не больше 4 закреплённых чатов'));
+        return;
+      }
+    }
+    try {
+      await setChatPinUseCase(listId: chat.listId, pin: wantPin);
+    } on Failure catch (e) {
+      emit(state.copyWith(error: e.message));
+      return;
+    } catch (_) {
+      emit(state.copyWith(error: 'Не удалось изменить закрепление'));
+      return;
+    }
+    final updated = state.chats.map((c) {
+      if (c.id != chat.id) {
+        return c;
+      }
+      return c.copyWith(isPinned: wantPin);
+    }).toList();
+    Chat? sel = state.selectedChat;
+    if (sel?.id == chat.id) {
+      sel = sel!.copyWith(isPinned: wantPin);
+    }
+    emit(
+      state.copyWith(
+        chats: sortChatsForList(updated),
+        selectedChat: sel,
+      ),
+    );
+  }
+
+  void _emitAfterGroupLeft(Emitter<ChatState> emit, int groupId) {
+    final updated = state.chats
+        .where((c) => !(c.isGroup && c.peerGroupId == groupId))
+        .toList();
+    final sel = state.selectedChat;
+    final clearSel =
+        sel != null && sel.isGroup && sel.peerGroupId == groupId;
+    emit(
+      state.copyWith(
+        chats: sortChatsForList(updated),
+        selectedChat: clearSel ? null : state.selectedChat,
+        messages: clearSel ? const [] : state.messages,
+      ),
+    );
+  }
+
+  void _onGroupLeftApplied(
+    ChatGroupLeftApplied event,
+    Emitter<ChatState> emit,
+  ) {
+    _emitAfterGroupLeft(emit, event.groupId);
+    unawaited(chatDraftLocal.removeForGroupId(event.groupId));
+    add(const ChatLoadChats(silent: true));
+  }
+
+  Future<void> _onLeaveGroup(
+    ChatLeaveGroup event,
+    Emitter<ChatState> emit,
+  ) async {
+    final chat = event.chat;
+    if (!chat.isGroup) {
+      return;
+    }
+    try {
+      await leaveGroupUseCase(chat.peerGroupId);
+    } on Failure catch (e) {
+      emit(state.copyWith(error: e.message));
+      return;
+    } catch (_) {
+      emit(state.copyWith(error: 'Не удалось выйти из группы'));
+      return;
+    }
+    _emitAfterGroupLeft(emit, chat.peerGroupId);
+    unawaited(chatDraftLocal.removeForChat(chat));
+    add(const ChatLoadChats(silent: true));
   }
 
   void _onNewMessageReceived(
@@ -894,7 +1243,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       return c.copyWith(unreadCount: c.unreadCount + 1);
     }).toList();
 
-    emit(state.copyWith(chats: updatedChats));
+    emit(state.copyWith(chats: sortChatsForList(updatedChats)));
   }
 
   Future<void> _onDeleteMessage(
@@ -1052,15 +1401,16 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
   void _onUserTyping(ChatUserTyping event, Emitter<ChatState> emit) {
     _typingClearTimer?.cancel();
-    emit(state.copyWith(typingUserId: event.userId));
+    emit(state.copyWith(typing: event.payload));
     _typingClearTimer = Timer(const Duration(seconds: 5), () {
-      add(ChatClearTyping(event.userId));
+      add(ChatClearTyping(event.payload));
     });
   }
 
   void _onClearTyping(ChatClearTyping event, Emitter<ChatState> emit) {
-    if (state.typingUserId == event.userId) {
-      emit(state.copyWith(clearTypingUserId: true));
+    final cur = state.typing;
+    if (cur != null && cur == event.payload) {
+      emit(state.copyWith(clearTyping: true));
     }
   }
 
@@ -1071,10 +1421,11 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     }
 
     if (chat.isGroup) {
+      sendChatTypingUseCase(peerGroupId: chat.peerGroupId);
       return;
     }
 
-    sendChatTypingUseCase(chat.peerUserId);
+    sendChatTypingUseCase(peerUserId: chat.peerUserId);
   }
 
   Future<void> _onInlineCallbackPressed(
@@ -1083,11 +1434,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   ) async {
     final chat = state.selectedChat;
     if (chat == null) {
-      return;
-    }
-
-    if (chat.isGroup) {
-      emit(state.copyWith(error: 'Кнопки в групповых чатах пока не поддерживаются'));
       return;
     }
 
@@ -1255,10 +1601,11 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       final updatedChats = state.chats.where((c) => c.id != event.chat.id).toList();
       final isDeletingSelected = state.selectedChat?.id == event.chat.id;
       emit(state.copyWith(
-        chats: updatedChats,
+        chats: sortChatsForList(updatedChats),
         selectedChat: isDeletingSelected ? null : state.selectedChat,
         messages: isDeletingSelected ? const [] : state.messages,
       ));
+      unawaited(chatDraftLocal.removeForChat(event.chat));
     } catch (e) {
       Logs().e('ChatBloc: ошибка удаления чата', e);
       emit(state.copyWith(error: 'Ошибка удаления чата'));

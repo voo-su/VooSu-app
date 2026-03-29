@@ -1,8 +1,11 @@
 import 'package:equatable/equatable.dart';
 import 'package:voosu/domain/entities/attachment_upload.dart';
 import 'package:voosu/domain/entities/chat.dart';
+import 'package:voosu/domain/entities/chat_mention_member.dart';
+import 'package:voosu/domain/entities/group_message_mention.dart';
 import 'package:voosu/domain/entities/message.dart';
 import 'package:voosu/domain/entities/pending_queue_item.dart';
+import 'package:voosu/domain/entities/user_typing_payload.dart';
 
 abstract class ChatEvent extends Equatable {
   const ChatEvent();
@@ -33,6 +36,15 @@ class ChatOpenWithUser extends ChatEvent {
 
   @override
   List<Object?> get props => [userId];
+}
+
+class ChatOpenGroupById extends ChatEvent {
+  final int groupId;
+
+  const ChatOpenGroupById(this.groupId);
+
+  @override
+  List<Object?> get props => [groupId];
 }
 
 class ChatCreateGroupRequested extends ChatEvent {
@@ -71,6 +83,19 @@ class ChatMessagesForChatLoaded extends ChatEvent {
   List<Object?> get props => [chat, messages, updatedChats, pendingQueue];
 }
 
+class ChatGroupMentionMembersLoaded extends ChatEvent {
+  final int groupId;
+  final List<ChatMentionMember> members;
+
+  const ChatGroupMentionMembersLoaded({
+    required this.groupId,
+    required this.members,
+  });
+
+  @override
+  List<Object?> get props => [groupId, members];
+}
+
 class ChatToggleChatNotifications extends ChatEvent {
   final Chat chat;
 
@@ -80,19 +105,82 @@ class ChatToggleChatNotifications extends ChatEvent {
   List<Object?> get props => [chat];
 }
 
+class ChatTogglePin extends ChatEvent {
+  final Chat chat;
+
+  const ChatTogglePin(this.chat);
+
+  @override
+  List<Object?> get props => [chat];
+}
+
+class ChatLeaveGroup extends ChatEvent {
+  final Chat chat;
+
+  const ChatLeaveGroup(this.chat);
+
+  @override
+  List<Object?> get props => [chat];
+}
+
+class ChatGroupLeftApplied extends ChatEvent {
+  final int groupId;
+
+  const ChatGroupLeftApplied(this.groupId);
+
+  @override
+  List<Object?> get props => [groupId];
+}
+
 class ChatSendMessage extends ChatEvent {
   final String text;
   final int replyToMessageId;
   final List<AttachmentUpload>? attachments;
+  final GroupMessageMention? mention;
 
   const ChatSendMessage(
     this.text, {
     this.replyToMessageId = 0,
     this.attachments,
+    this.mention,
   });
 
   @override
-  List<Object?> get props => [text, replyToMessageId, attachments];
+  List<Object?> get props => [text, replyToMessageId, attachments, mention];
+}
+
+class ChatSendSticker extends ChatEvent {
+  final int stickerId;
+
+  const ChatSendSticker(this.stickerId);
+
+  @override
+  List<Object?> get props => [stickerId];
+}
+
+class ChatSendCode extends ChatEvent {
+  final String lang;
+  final String code;
+
+  const ChatSendCode({required this.lang, required this.code});
+
+  @override
+  List<Object?> get props => [lang, code];
+}
+
+class ChatSendLocation extends ChatEvent {
+  final String latitude;
+  final String longitude;
+  final String description;
+
+  const ChatSendLocation({
+    required this.latitude,
+    required this.longitude,
+    this.description = '',
+  });
+
+  @override
+  List<Object?> get props => [latitude, longitude, description];
 }
 
 class ChatStartSendingMessage extends ChatEvent {
@@ -208,6 +296,19 @@ class ChatClearError extends ChatEvent {
   const ChatClearError();
 }
 
+class ChatClearSnackbarHint extends ChatEvent {
+  const ChatClearSnackbarHint();
+}
+
+class ChatCollectStickerFromMessage extends ChatEvent {
+  final int messageId;
+
+  const ChatCollectStickerFromMessage(this.messageId);
+
+  @override
+  List<Object?> get props => [messageId];
+}
+
 class ChatBackToList extends ChatEvent {
   const ChatBackToList();
 }
@@ -288,21 +389,21 @@ class ChatMessagesRead extends ChatEvent {
 }
 
 class ChatUserTyping extends ChatEvent {
-  final int userId;
+  final UserTypingPayload payload;
 
-  const ChatUserTyping(this.userId);
+  const ChatUserTyping(this.payload);
 
   @override
-  List<Object?> get props => [userId];
+  List<Object?> get props => [payload];
 }
 
 class ChatClearTyping extends ChatEvent {
-  final int userId;
+  final UserTypingPayload payload;
 
-  const ChatClearTyping(this.userId);
+  const ChatClearTyping(this.payload);
 
   @override
-  List<Object?> get props => [userId];
+  List<Object?> get props => [payload];
 }
 
 class ChatSendTyping extends ChatEvent {

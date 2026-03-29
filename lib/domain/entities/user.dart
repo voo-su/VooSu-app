@@ -9,6 +9,7 @@ class User extends Equatable {
   final String birthday;
   final String about;
   final int? avatarFileId;
+  final int messagePrivacy;
 
   const User({
     required this.id,
@@ -19,6 +20,7 @@ class User extends Equatable {
     this.birthday = '',
     this.about = '',
     this.avatarFileId,
+    this.messagePrivacy = 0,
   });
 
   User copyWith({
@@ -29,6 +31,7 @@ class User extends Equatable {
     String? birthday,
     String? about,
     int? avatarFileId,
+    int? messagePrivacy,
   }) {
     return User(
       id: id,
@@ -39,6 +42,7 @@ class User extends Equatable {
       birthday: birthday ?? this.birthday,
       about: about ?? this.about,
       avatarFileId: avatarFileId ?? this.avatarFileId,
+      messagePrivacy: messagePrivacy ?? this.messagePrivacy,
     );
   }
 
@@ -58,5 +62,6 @@ class User extends Equatable {
     birthday,
     about,
     avatarFileId,
+    messagePrivacy,
   ];
 }

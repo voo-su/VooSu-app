@@ -236,3 +236,29 @@ class _SelectableCodeBlockState extends State<_SelectableCodeBlock> {
     );
   }
 }
+
+class ChatCodeSnippet extends StatelessWidget {
+  const ChatCodeSnippet({
+    super.key,
+    required this.code,
+    this.language = 'plaintext',
+  });
+
+  final String code;
+  final String language;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = isDark ? atomOneDarkTheme : githubTheme;
+    const baseStyle = TextStyle(fontSize: 13, fontFamily: 'monospace');
+    final lang =
+        language.trim().isNotEmpty ? language.trim() : 'plaintext';
+    return _SelectableCodeBlock(
+      code: code.replaceAll('\t', '     '),
+      language: lang,
+      theme: theme,
+      baseStyle: baseStyle,
+    );
+  }
+}

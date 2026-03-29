@@ -14,6 +14,7 @@ abstract class UserMapper {
       birthday: proto.birthday,
       about: proto.about,
       avatarFileId: proto.avatarFileId > 0 ? proto.avatarFileId.toInt() : null,
+      messagePrivacy: 0,
     );
   }
 

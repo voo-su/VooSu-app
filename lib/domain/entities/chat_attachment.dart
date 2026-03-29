@@ -4,6 +4,7 @@ class ChatAttachment {
   final String mimeType;
   final int size;
   final int type;
+  final String? externalUrl;
 
   const ChatAttachment({
     required this.fileId,
@@ -11,5 +12,6 @@ class ChatAttachment {
     this.mimeType = '',
     this.size = 0,
     this.type = 0,
+    this.externalUrl,
   });
 }

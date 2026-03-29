@@ -432,7 +432,7 @@ class _TaskDetailViewState extends State<TaskDetailView>
         ),
         ChatInputBar(
           controller: _commentController,
-          onSendMessage: (text, {attachments}) =>
+          onSendMessage: (text, {attachments, mention}) =>
               _sendComment(text, attachments: attachments),
           isEnabled: !_commentSending,
           isSending: _commentSending,

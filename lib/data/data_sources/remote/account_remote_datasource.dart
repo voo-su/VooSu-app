@@ -49,6 +49,10 @@ abstract class IAccountRemoteDataSource {
   Future<void> markNotificationRead(int notificationId);
 
   Future<void> markAllNotificationsRead();
+
+  Future<int> getConfidentialitySettings();
+
+  Future<void> updateConfidentialitySettings(int messagePrivacy);
 }
 
 class AccountRemoteDataSource implements IAccountRemoteDataSource {
@@ -275,6 +279,42 @@ class AccountRemoteDataSource implements IAccountRemoteDataSource {
     } catch (e) {
       Logs().e('AccountRemoteDataSource: ошибка markAllNotificationsRead', e);
       throw ApiFailure('Ошибка отметки уведомлений');
+    }
+  }
+
+  @override
+  Future<int> getConfidentialitySettings() async {
+    try {
+      final r = await _client.getConfidentialitySettings(
+        accountpb.GetConfidentialitySettingsRequest(),
+      );
+      return r.messagePrivacy;
+    } on GrpcError catch (e) {
+      Logs().e('AccountRemoteDataSource: конфиденциальность', e);
+      throwGrpcError(e, 'Не удалось загрузить настройки приватности');
+    } catch (e) {
+      Logs().e('AccountRemoteDataSource: конфиденциальность', e);
+      throw ApiFailure('Не удалось загрузить настройки приватности');
+    }
+  }
+
+  @override
+  Future<void> updateConfidentialitySettings(int messagePrivacy) async {
+    try {
+      await _client.updateConfidentialitySettings(
+        accountpb.UpdateConfidentialitySettingsRequest(
+          messagePrivacy: messagePrivacy,
+        ),
+      );
+    } on GrpcError catch (e) {
+      Logs().e('AccountRemoteDataSource: сохранение конфиденциальности', e);
+      if (e.code == StatusCode.invalidArgument) {
+        throw NetworkFailure(e.message ?? 'Некорректное значение');
+      }
+      throwGrpcError(e, 'Не удалось сохранить настройки приватности');
+    } catch (e) {
+      Logs().e('AccountRemoteDataSource: сохранение конфиденциальности', e);
+      throw ApiFailure('Не удалось сохранить настройки приватности');
     }
   }
 

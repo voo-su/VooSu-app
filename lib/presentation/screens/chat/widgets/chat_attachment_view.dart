@@ -47,6 +47,16 @@ class _ChatAttachmentViewState extends State<ChatAttachmentView> {
   }
 
   Future<void> _loadContent() async {
+    final ext = widget.attachment.externalUrl;
+    if (ext != null && ext.isNotEmpty) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = false;
+        });
+      }
+      return;
+    }
     final bytes = await widget.onLoadContent(widget.attachment.fileId);
     if (!mounted) {
       return;
@@ -133,6 +143,36 @@ class _ChatAttachmentViewState extends State<ChatAttachmentView> {
   }
 
   void _showImageFullscreen() {
+    final ext = widget.attachment.externalUrl;
+    if (ext != null && ext.isNotEmpty) {
+      showDialog<void>(
+        context: context,
+        barrierColor: Colors.black87,
+        builder: (ctx) => Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(8),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              InteractiveViewer(
+                minScale: 0.5,
+                maxScale: 4,
+                child: Image.network(ext, fit: BoxFit.contain),
+              ),
+              Positioned(
+                top: 8,
+                right: 8,
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                  onPressed: () => Navigator.of(ctx).pop(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      return;
+    }
     if (_bytes == null || _bytes!.isEmpty) {
       return;
     }
@@ -240,6 +280,41 @@ class _ChatAttachmentViewState extends State<ChatAttachmentView> {
   }
 
   Widget _buildImage(ThemeData theme) {
+    final ext = widget.attachment.externalUrl;
+    if (ext != null && ext.isNotEmpty) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 4),
+        child: GestureDetector(
+          onTap: _showImageFullscreen,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.network(
+              ext,
+              fit: BoxFit.cover,
+              width: 220,
+              height: 180,
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) {
+                  return child;
+                }
+                return SizedBox(
+                  width: 220,
+                  height: 120,
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: widget.textColor,
+                    ),
+                  ),
+                );
+              },
+              errorBuilder: (_, _, _) =>
+                  _buildDocumentRow(theme, onTap: _showImageFullscreen),
+            ),
+          ),
+        ),
+      );
+    }
     if (_bytes == null || _bytes!.isEmpty) {
       return const SizedBox.shrink();
     }

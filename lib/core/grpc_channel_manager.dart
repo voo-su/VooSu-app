@@ -4,6 +4,7 @@ import 'package:voosu/core/log/logs.dart';
 import 'package:voosu/core/server_config.dart';
 import 'package:voosu/generated/grpc_pb/auth.pbgrpc.dart' as authpb;
 import 'package:voosu/generated/grpc_pb/chat.pbgrpc.dart' as chatpb;
+import 'package:voosu/generated/grpc_pb/contact.pbgrpc.dart' as contactpb;
 import 'package:voosu/generated/grpc_pb/project.pbgrpc.dart' as projectpb;
 import 'package:voosu/generated/grpc_pb/search.pbgrpc.dart' as searchpb;
 import 'package:voosu/generated/grpc_pb/account.pbgrpc.dart' as accountpb;
@@ -21,6 +22,7 @@ class GrpcChannelManager {
   chatpb.ChatServiceClient? _chatClient;
   projectpb.ProjectServiceClient? _projectClient;
   searchpb.SearchServiceClient? _searchClient;
+  contactpb.ContactServiceClient? _contactClient;
 
   GrpcChannelManager(this._config, this._authInterceptor);
 
@@ -91,6 +93,14 @@ class GrpcChannelManager {
     return _searchClient!;
   }
 
+  contactpb.ContactServiceClient get contactClient {
+    _contactClient ??= contactpb.ContactServiceClient(
+      channel,
+      interceptors: [_authInterceptor],
+    );
+    return _contactClient!;
+  }
+
   Future<void> setServerAddress(String address) async {
     Logs().i('GrpcChannelManager: смена сервера на $address');
     await _config.setServerAddress(address);
@@ -107,6 +117,7 @@ class GrpcChannelManager {
     _chatClient = null;
     _projectClient = null;
     _searchClient = null;
+    _contactClient = null;
     if (ch != null) {
       Logs().d('GrpcChannelManager: закрытие канала');
       await ch.shutdown();

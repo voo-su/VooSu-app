@@ -9,7 +9,11 @@ class ChatListItem extends StatelessWidget {
   final bool notificationsMuted;
   final VoidCallback onTap;
   final VoidCallback? onToggleNotifications;
+  final VoidCallback? onTogglePin;
+  final VoidCallback? onShowProfile;
+  final VoidCallback? onLeaveGroup;
   final VoidCallback? onDeleteChat;
+  final String? draftPreview;
 
   const ChatListItem({
     super.key,
@@ -19,7 +23,11 @@ class ChatListItem extends StatelessWidget {
     this.notificationsMuted = false,
     required this.onTap,
     this.onToggleNotifications,
+    this.onTogglePin,
+    this.onShowProfile,
+    this.onLeaveGroup,
     this.onDeleteChat,
+    this.draftPreview,
   });
 
   static String title(Chat chat) {
@@ -37,11 +45,24 @@ class ChatListItem extends StatelessWidget {
     return '';
   }
 
+  static String _oneLineDraftSnippet(String raw, {int max = 72}) {
+    final t = raw.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (t.length <= max) {
+      return t;
+    }
+    return '${t.substring(0, max)}…';
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final titleStr = title(chat);
     final isDark = theme.brightness == Brightness.dark;
+    final draftSnippet = !isSelected &&
+            draftPreview != null &&
+            draftPreview!.trim().isNotEmpty
+        ? _oneLineDraftSnippet(draftPreview!)
+        : null;
 
     return Material(
       color: isSelected
@@ -51,7 +72,11 @@ class ChatListItem extends StatelessWidget {
           : Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        onLongPress: (onToggleNotifications != null || onDeleteChat != null)
+        onLongPress: (onToggleNotifications != null ||
+                onTogglePin != null ||
+                onShowProfile != null ||
+                onLeaveGroup != null ||
+                onDeleteChat != null)
             ? () => _showContextMenu(context, theme)
             : null,
         child: Container(
@@ -78,7 +103,34 @@ class ChatListItem extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    if (_subtitle(chat).isNotEmpty) ...[
+                    if (draftSnippet != null) ...[
+                      const SizedBox(height: 2),
+                      Text.rich(
+                        TextSpan(
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontSize: 13,
+                          ),
+                          children: [
+                            TextSpan(
+                              text: 'Черновик: ',
+                              style: TextStyle(
+                                color: theme.colorScheme.error,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            TextSpan(
+                              text: draftSnippet,
+                              style: TextStyle(
+                                color: theme.colorScheme.onSurfaceVariant
+                                    .withValues(alpha: 0.75),
+                              ),
+                            ),
+                          ],
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ] else if (_subtitle(chat).isNotEmpty) ...[
                       const SizedBox(height: 2),
                       Text(
                         _subtitle(chat),
@@ -95,6 +147,17 @@ class ChatListItem extends StatelessWidget {
                   ],
                 ),
               ),
+              if (chat.isPinned)
+                Padding(
+                  padding: const EdgeInsets.only(right: 4),
+                  child: Icon(
+                    Icons.push_pin_outlined,
+                    size: 18,
+                    color: theme.colorScheme.onSurfaceVariant.withValues(
+                      alpha: 0.75,
+                    ),
+                  ),
+                ),
               if (notificationsMuted)
                 Icon(
                   Icons.notifications_off_outlined,
@@ -153,6 +216,39 @@ class ChatListItem extends StatelessWidget {
                 onTap: () {
                   Navigator.of(context).pop();
                   onToggleNotifications?.call();
+                },
+              ),
+            if (onTogglePin != null)
+              ListTile(
+                leading: const Icon(Icons.push_pin_outlined),
+                title: Text(chat.isPinned ? 'Открепить' : 'Закрепить'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  onTogglePin?.call();
+                },
+              ),
+            if (onShowProfile != null)
+              ListTile(
+                leading: const Icon(Icons.person_outline),
+                title: const Text('Профиль'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  onShowProfile?.call();
+                },
+              ),
+            if (onLeaveGroup != null)
+              ListTile(
+                leading: Icon(
+                  Icons.logout_rounded,
+                  color: theme.colorScheme.error,
+                ),
+                title: Text(
+                  'Покинуть группу',
+                  style: TextStyle(color: theme.colorScheme.error),
+                ),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  onLeaveGroup?.call();
                 },
               ),
             if (onDeleteChat != null)
