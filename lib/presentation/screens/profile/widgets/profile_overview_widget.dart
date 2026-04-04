@@ -47,7 +47,7 @@ class ProfileOverviewWidget extends StatelessWidget {
       final uploadResult = await repo.uploadProfilePhoto(fileId);
       if (context.mounted) {
         context.read<AuthBloc>().add(
-          AuthProfilePhotoUpdated(uploadResult.avatarFileId),
+          AuthProfilePhotoUpdated(uploadResult.photoId),
         );
       }
     } catch (_) {
@@ -91,7 +91,7 @@ class ProfileOverviewWidget extends StatelessWidget {
                           alignment: Alignment.center,
                           children: [
                             AvatarFromFileId(
-                              fileId: user?.avatarFileId,
+                              fileId: user?.photoId,
                               letter: letter,
                               size: 80,
                               accountRepository: accountRepo,

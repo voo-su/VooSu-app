@@ -37,7 +37,7 @@ class SendChatMessageUseCase {
     final text = content.trim();
     final imgs = attachments!;
     final items = <MixedSendItem>[
-      MixedSendItem(itemType: 1, content: text, imageFileId: 0),
+      MixedSendItem(itemType: 1, content: text, imageFileId: ''),
       ...imgs.map(
         (a) => MixedSendItem(itemType: 3, content: '', imageFileId: a.fileId),
       ),

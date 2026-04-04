@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:voosu/core/connection_status.dart';
+import 'package:voosu/core/storage_file_id.dart';
 import 'package:voosu/core/log/logs.dart';
 import 'package:voosu/core/reconnect_policy.dart';
 import 'package:voosu/data/data_sources/local/user_local_data_source.dart';
@@ -389,7 +390,7 @@ class PtsSyncService {
                 final m = e as Map<String, dynamic>;
                 return AttachmentUpload(
                   filename: m['filename'] as String? ?? '',
-                  fileId: (m['fileId'] as num?)?.toInt() ?? 0,
+                  fileId: storageFileIdFromJson(m['fileId']),
                 );
               }).toList();
             }
@@ -400,7 +401,7 @@ class PtsSyncService {
           if (shouldSendAsMixedMessage(content, attachments)) {
             final imgs = attachments!;
             final items = <MixedSendItem>[
-              MixedSendItem(itemType: 1, content: content.trim(), imageFileId: 0),
+              MixedSendItem(itemType: 1, content: content.trim(), imageFileId: ''),
               ...imgs.map(
                 (a) => MixedSendItem(
                   itemType: 3,

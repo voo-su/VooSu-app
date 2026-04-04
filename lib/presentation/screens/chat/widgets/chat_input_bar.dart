@@ -21,14 +21,14 @@ typedef OnSendMessage = void Function(
   {List<AttachmentUpload>? attachments, GroupMessageMention? mention}
 );
 
-typedef OnUploadFile = Future<int?> Function(
+typedef OnUploadFile = Future<String?> Function(
   String filename,
   Stream<List<int>> chunkStream,
   int totalBytes, [
   void Function(int sentBytes, int? totalBytes)? onProgress,
 ]);
 
-typedef OnUploadLargeFile = Future<int?> Function(
+typedef OnUploadLargeFile = Future<String?> Function(
   String path,
   String filename,
   int size, [
@@ -419,7 +419,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
             Stream.fromIterable([entry.bytes]),
             entry.bytes.length,
           );
-          if (fileId != null && fileId != 0) {
+          if (fileId != null && fileId.isNotEmpty) {
             uploadedAttachments.add(
               AttachmentUpload(filename: entry.filename, fileId: fileId),
             );
@@ -458,7 +458,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
               ref.filename,
               ref.size,
             );
-            if (fileId != null && fileId != 0) {
+            if (fileId != null && fileId.isNotEmpty) {
               allAttachments.add(
                 AttachmentUpload(filename: ref.filename, fileId: fileId),
               );
@@ -516,7 +516,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
               }
             },
           );
-          if (fileId != null && fileId != 0 && mounted) {
+          if (fileId != null && fileId.isNotEmpty && mounted) {
             bloc.add(ChatUploadFileComplete(clientId, ref.filename, fileId));
           } else {
             if (mounted && messenger != null) {

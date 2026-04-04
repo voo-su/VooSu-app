@@ -5,14 +5,14 @@ class ContactListItem extends Equatable {
   final String username;
   final String name;
   final String surname;
-  final String avatarUrl;
+  final String? photoId;
 
   const ContactListItem({
     required this.id,
     required this.username,
     required this.name,
     required this.surname,
-    this.avatarUrl = '',
+    this.photoId,
   });
 
   String get displayLine {
@@ -34,5 +34,5 @@ class ContactListItem extends Equatable {
   }
 
   @override
-  List<Object?> get props => [id, username, name, surname, avatarUrl];
+  List<Object?> get props => [id, username, name, surname, photoId];
 }

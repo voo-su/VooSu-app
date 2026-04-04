@@ -4,7 +4,7 @@ class OvertGroupListing extends Equatable {
   final int id;
   final int type;
   final String name;
-  final String avatarUrl;
+  final String? photoId;
   final String description;
   final int memberCount;
   final int maxNum;
@@ -15,7 +15,7 @@ class OvertGroupListing extends Equatable {
     required this.id,
     this.type = 1,
     required this.name,
-    this.avatarUrl = '',
+    this.photoId,
     this.description = '',
     this.memberCount = 0,
     this.maxNum = 200,
@@ -30,7 +30,7 @@ class OvertGroupListing extends Equatable {
     id,
     type,
     name,
-    avatarUrl,
+    photoId,
     description,
     memberCount,
     maxNum,

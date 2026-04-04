@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:voosu/core/attachment_type_helper.dart';
 import 'package:voosu/core/chat_msg_type.dart';
 import 'package:voosu/core/date_formatter.dart';
+import 'package:voosu/core/storage_file_id.dart';
 import 'package:voosu/domain/entities/chat_attachment.dart';
 import 'package:voosu/domain/entities/message.dart';
 import 'package:voosu/domain/entities/poll.dart';
@@ -54,9 +55,10 @@ class MessageBubble extends StatelessWidget {
   final VoidCallback? onReply;
   final VoidCallback? onForward;
   final VoidCallback? onAddStickerToCollection;
-  final Future<void> Function(int fileId, String filename)?
+  final Future<void> Function(String fileId, String filename)?
   onDownloadAttachment;
-  final Future<List<int>?> Function(int fileId)? onLoadAttachmentContent;
+  final Future<List<int>?> Function(String fileId)? onLoadAttachmentContent;
+  final Future<List<int>?> Function(String storageFileId)? onLoadMixedImageBytes;
   final bool isSelectionMode;
   final bool isSelected;
   final VoidCallback? onToggleSelection;
@@ -76,6 +78,7 @@ class MessageBubble extends StatelessWidget {
     this.onAddStickerToCollection,
     this.onDownloadAttachment,
     this.onLoadAttachmentContent,
+    this.onLoadMixedImageBytes,
     this.isSelectionMode = false,
     this.isSelected = false,
     this.onToggleSelection,
@@ -520,6 +523,7 @@ class MessageBubble extends StatelessWidget {
                           child: _MixedMessageContent(
                             extraJson: message.extraJson,
                             textColor: textColor,
+                            onLoadMixedImageBytes: onLoadMixedImageBytes,
                           ),
                         ),
                       ],
@@ -713,7 +717,7 @@ class _MessageLocationCard extends StatelessWidget {
 class _AttachmentPreviewTile extends StatefulWidget {
   final ChatAttachment attachment;
   final Color textColor;
-  final Future<List<int>?> Function(int fileId)? onLoadContent;
+  final Future<List<int>?> Function(String fileId)? onLoadContent;
   final String? typeLabel;
 
   const _AttachmentPreviewTile({
@@ -735,7 +739,9 @@ class _AttachmentPreviewTileState extends State<_AttachmentPreviewTile> {
   @override
   void initState() {
     super.initState();
-    if (widget.onLoadContent != null &&  widget.attachment.type == AttachmentType.image) {
+    if (widget.onLoadContent != null &&
+        widget.attachment.fileId.isNotEmpty &&
+        widget.attachment.type == AttachmentType.image) {
       widget.onLoadContent!(widget.attachment.fileId).then((bytes) {
         if (mounted) {
           setState(() {
@@ -1083,12 +1089,14 @@ class _MixedMessageContent extends StatelessWidget {
   const _MixedMessageContent({
     required this.extraJson,
     required this.textColor,
+    this.onLoadMixedImageBytes,
   });
 
   static const double _maxImageWidth = 300;
 
   final String? extraJson;
   final Color textColor;
+  final Future<List<int>?> Function(String storageFileId)? onLoadMixedImageBytes;
 
   @override
   Widget build(BuildContext context) {
@@ -1115,6 +1123,7 @@ class _MixedMessageContent extends StatelessWidget {
       final map = Map<String, dynamic>.from(e);
       final type = (map['type'] as num?)?.toInt() ?? 0;
       final c = map['content']?.toString() ?? '';
+      final link = map['link']?.toString() ?? '';
       if (type == 1 && c.isNotEmpty) {
         children.add(
           SelectableText(
@@ -1126,41 +1135,41 @@ class _MixedMessageContent extends StatelessWidget {
             ),
           ),
         );
-      } else if (type == 3 && c.isNotEmpty) {
-        children.add(
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: _maxImageWidth),
-                child: Image.network(
-                  c,
-                  fit: BoxFit.fitWidth,
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) {
-                      return child;
-                    }
-                    return SizedBox(
-                      height: 120,
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          value: loadingProgress.expectedTotalBytes != null
-                              ? loadingProgress.cumulativeBytesLoaded /
-                                  loadingProgress.expectedTotalBytes!
-                              : null,
-                        ),
-                      ),
-                    );
-                  },
-                  errorBuilder: (context, error, stackTrace) {
-                    return _mixedImageLoadError(theme, textColor);
-                  },
+      } else if (type == 3) {
+        String? storageId;
+        if (looksLikeStorageFileId(link)) {
+          storageId = link.trim();
+        } else if (looksLikeStorageFileId(c)) {
+          storageId = c.trim();
+        }
+        final loader = onLoadMixedImageBytes;
+        if (storageId != null && loader != null) {
+          children.add(
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: _MixedMessageImageTile(
+                storageFileId: storageId,
+                textColor: textColor,
+                maxWidth: _maxImageWidth,
+                onLoad: loader,
+              ),
+            ),
+          );
+        } else if (c.startsWith('http://') || c.startsWith('https://')) {
+          children.add(
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Text(
+                'Изображение доступно только через приложение',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: textColor.withValues(alpha: 0.72),
                 ),
               ),
             ),
-          ),
-        );
+          );
+        } else if (storageId != null && loader == null) {
+          children.add(_mixedImageLoadError(theme, textColor));
+        }
       }
     }
 
@@ -1181,6 +1190,79 @@ class _MixedMessageContent extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: children,
+      ),
+    );
+  }
+}
+
+class _MixedMessageImageTile extends StatefulWidget {
+  const _MixedMessageImageTile({
+    required this.storageFileId,
+    required this.textColor,
+    required this.maxWidth,
+    required this.onLoad,
+  });
+
+  final String storageFileId;
+  final Color textColor;
+  final double maxWidth;
+  final Future<List<int>?> Function(String storageFileId) onLoad;
+
+  @override
+  State<_MixedMessageImageTile> createState() => _MixedMessageImageTileState();
+}
+
+class _MixedMessageImageTileState extends State<_MixedMessageImageTile> {
+  Uint8List? _bytes;
+  bool _loading = true;
+  bool _failed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final bytes = await widget.onLoad(widget.storageFileId);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _loading = false;
+      if (bytes != null && bytes.isNotEmpty) {
+        _bytes = Uint8List.fromList(bytes);
+      } else {
+        _failed = true;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    if (_loading) {
+      return SizedBox(
+        width: widget.maxWidth,
+        height: 120,
+        child: Center(
+          child: CircularProgressIndicator(
+            color: widget.textColor.withValues(alpha: 0.8),
+          ),
+        ),
+      );
+    }
+    if (_failed || _bytes == null) {
+      return _mixedImageLoadError(theme, widget.textColor);
+    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: widget.maxWidth),
+        child: Image.memory(
+          _bytes!,
+          fit: BoxFit.fitWidth,
+        ),
       ),
     );
   }

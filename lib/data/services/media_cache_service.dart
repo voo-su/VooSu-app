@@ -36,9 +36,9 @@ class MediaCacheService {
     return b64;
   }
 
-  Future<List<int>> getFile(int fileId) async {
+  Future<List<int>> getFile(String fileId) async {
     final dir = await _getCacheDir();
-    final file = File(p.join(dir.path, _fileNameFor(fileId.toString())));
+    final file = File(p.join(dir.path, _fileNameFor(fileId)));
 
     if (await file.exists()) {
       try {

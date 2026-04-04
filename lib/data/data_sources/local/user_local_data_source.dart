@@ -41,7 +41,7 @@ class UserLocalDataSourceImpl implements UserLocalDataSource {
   static const _keyUserGender = 'voosu_user_gender';
   static const _keyUserBirthday = 'voosu_user_birthday';
   static const _keyUserAbout = 'voosu_user_about';
-  static const _keyUserAvatarFileId = 'voosu_user_avatar_file_id';
+  static const _keyUserPhotoId = 'voosu_user_photo_id';
   static const _keyUserMessagePrivacy = 'voosu_user_message_privacy';
   static const _keyThemeMode = 'voosu_theme_mode';
   static const _keyNotificationSoundEnabled = 'voosu_notification_sound_enabled';
@@ -80,7 +80,7 @@ class UserLocalDataSourceImpl implements UserLocalDataSource {
     final gender = _prefs!.getInt(_keyUserGender) ?? 0;
     final birthday = _prefs!.getString(_keyUserBirthday) ?? '';
     final about = _prefs!.getString(_keyUserAbout) ?? '';
-    final avatarFileId = _prefs!.getInt(_keyUserAvatarFileId);
+    final photoId = _prefs!.getString(_keyUserPhotoId);
     final messagePrivacy = _prefs!.getInt(_keyUserMessagePrivacy) ?? 0;
 
     if (id != null && username != null && name != null) {
@@ -92,7 +92,8 @@ class UserLocalDataSourceImpl implements UserLocalDataSource {
         gender: gender,
         birthday: birthday,
         about: about,
-        avatarFileId: avatarFileId,
+        photoId:
+            (photoId != null && photoId.isNotEmpty) ? photoId : null,
         messagePrivacy: messagePrivacy,
       );
     } else {
@@ -119,10 +120,10 @@ class UserLocalDataSourceImpl implements UserLocalDataSource {
     _prefs?.setInt(_keyUserGender, user.gender);
     _prefs?.setString(_keyUserBirthday, user.birthday);
     _prefs?.setString(_keyUserAbout, user.about);
-    if (user.avatarFileId != null) {
-      _prefs?.setInt(_keyUserAvatarFileId, user.avatarFileId!);
+    if (user.photoId != null && user.photoId!.isNotEmpty) {
+      _prefs?.setString(_keyUserPhotoId, user.photoId!);
     } else {
-      _prefs?.remove(_keyUserAvatarFileId);
+      _prefs?.remove(_keyUserPhotoId);
     }
     _prefs?.setInt(_keyUserMessagePrivacy, user.messagePrivacy);
   }
@@ -141,7 +142,7 @@ class UserLocalDataSourceImpl implements UserLocalDataSource {
     _prefs?.remove(_keyUserGender);
     _prefs?.remove(_keyUserBirthday);
     _prefs?.remove(_keyUserAbout);
-    _prefs?.remove(_keyUserAvatarFileId);
+    _prefs?.remove(_keyUserPhotoId);
     _prefs?.remove(_keyUserMessagePrivacy);
   }
 

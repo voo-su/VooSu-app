@@ -1576,15 +1576,15 @@ class $CachedChatsTable extends CachedChats
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
-  static const VerificationMeta _avatarFileIdMeta = const VerificationMeta(
-    'avatarFileId',
+  static const VerificationMeta _photoIdMeta = const VerificationMeta(
+    'photoId',
   );
   @override
-  late final GeneratedColumn<int> avatarFileId = GeneratedColumn<int>(
-    'avatar_file_id',
+  late final GeneratedColumn<String> photoId = GeneratedColumn<String>(
+    'photo_id',
     aliasedName,
     true,
-    type: DriftSqlType.int,
+    type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
   static const VerificationMeta _lastMessagePreviewMeta =
@@ -1650,7 +1650,7 @@ class $CachedChatsTable extends CachedChats
     updatedAt,
     unreadCount,
     memberCount,
-    avatarFileId,
+    photoId,
     lastMessagePreview,
     notificationsMuted,
     listId,
@@ -1755,13 +1755,10 @@ class $CachedChatsTable extends CachedChats
         ),
       );
     }
-    if (data.containsKey('avatar_file_id')) {
+    if (data.containsKey('photo_id')) {
       context.handle(
-        _avatarFileIdMeta,
-        avatarFileId.isAcceptableOrUnknown(
-          data['avatar_file_id']!,
-          _avatarFileIdMeta,
-        ),
+        _photoIdMeta,
+        photoId.isAcceptableOrUnknown(data['photo_id']!, _photoIdMeta),
       );
     }
     if (data.containsKey('last_message_preview')) {
@@ -1847,9 +1844,9 @@ class $CachedChatsTable extends CachedChats
         DriftSqlType.int,
         data['${effectivePrefix}member_count'],
       )!,
-      avatarFileId: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}avatar_file_id'],
+      photoId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}photo_id'],
       ),
       lastMessagePreview: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
@@ -1888,7 +1885,7 @@ class CachedChat extends DataClass implements Insertable<CachedChat> {
   final int updatedAt;
   final int unreadCount;
   final int memberCount;
-  final int? avatarFileId;
+  final String? photoId;
   final String? lastMessagePreview;
   final bool notificationsMuted;
   final int listId;
@@ -1905,7 +1902,7 @@ class CachedChat extends DataClass implements Insertable<CachedChat> {
     required this.updatedAt,
     required this.unreadCount,
     required this.memberCount,
-    this.avatarFileId,
+    this.photoId,
     this.lastMessagePreview,
     required this.notificationsMuted,
     required this.listId,
@@ -1925,8 +1922,8 @@ class CachedChat extends DataClass implements Insertable<CachedChat> {
     map['updated_at'] = Variable<int>(updatedAt);
     map['unread_count'] = Variable<int>(unreadCount);
     map['member_count'] = Variable<int>(memberCount);
-    if (!nullToAbsent || avatarFileId != null) {
-      map['avatar_file_id'] = Variable<int>(avatarFileId);
+    if (!nullToAbsent || photoId != null) {
+      map['photo_id'] = Variable<String>(photoId);
     }
     if (!nullToAbsent || lastMessagePreview != null) {
       map['last_message_preview'] = Variable<String>(lastMessagePreview);
@@ -1950,9 +1947,9 @@ class CachedChat extends DataClass implements Insertable<CachedChat> {
       updatedAt: Value(updatedAt),
       unreadCount: Value(unreadCount),
       memberCount: Value(memberCount),
-      avatarFileId: avatarFileId == null && nullToAbsent
+      photoId: photoId == null && nullToAbsent
           ? const Value.absent()
-          : Value(avatarFileId),
+          : Value(photoId),
       lastMessagePreview: lastMessagePreview == null && nullToAbsent
           ? const Value.absent()
           : Value(lastMessagePreview),
@@ -1979,7 +1976,7 @@ class CachedChat extends DataClass implements Insertable<CachedChat> {
       updatedAt: serializer.fromJson<int>(json['updatedAt']),
       unreadCount: serializer.fromJson<int>(json['unreadCount']),
       memberCount: serializer.fromJson<int>(json['memberCount']),
-      avatarFileId: serializer.fromJson<int?>(json['avatarFileId']),
+      photoId: serializer.fromJson<String?>(json['photoId']),
       lastMessagePreview: serializer.fromJson<String?>(
         json['lastMessagePreview'],
       ),
@@ -2003,7 +2000,7 @@ class CachedChat extends DataClass implements Insertable<CachedChat> {
       'updatedAt': serializer.toJson<int>(updatedAt),
       'unreadCount': serializer.toJson<int>(unreadCount),
       'memberCount': serializer.toJson<int>(memberCount),
-      'avatarFileId': serializer.toJson<int?>(avatarFileId),
+      'photoId': serializer.toJson<String?>(photoId),
       'lastMessagePreview': serializer.toJson<String?>(lastMessagePreview),
       'notificationsMuted': serializer.toJson<bool>(notificationsMuted),
       'listId': serializer.toJson<int>(listId),
@@ -2023,7 +2020,7 @@ class CachedChat extends DataClass implements Insertable<CachedChat> {
     int? updatedAt,
     int? unreadCount,
     int? memberCount,
-    Value<int?> avatarFileId = const Value.absent(),
+    Value<String?> photoId = const Value.absent(),
     Value<String?> lastMessagePreview = const Value.absent(),
     bool? notificationsMuted,
     int? listId,
@@ -2040,7 +2037,7 @@ class CachedChat extends DataClass implements Insertable<CachedChat> {
     updatedAt: updatedAt ?? this.updatedAt,
     unreadCount: unreadCount ?? this.unreadCount,
     memberCount: memberCount ?? this.memberCount,
-    avatarFileId: avatarFileId.present ? avatarFileId.value : this.avatarFileId,
+    photoId: photoId.present ? photoId.value : this.photoId,
     lastMessagePreview: lastMessagePreview.present
         ? lastMessagePreview.value
         : this.lastMessagePreview,
@@ -2073,9 +2070,7 @@ class CachedChat extends DataClass implements Insertable<CachedChat> {
       memberCount: data.memberCount.present
           ? data.memberCount.value
           : this.memberCount,
-      avatarFileId: data.avatarFileId.present
-          ? data.avatarFileId.value
-          : this.avatarFileId,
+      photoId: data.photoId.present ? data.photoId.value : this.photoId,
       lastMessagePreview: data.lastMessagePreview.present
           ? data.lastMessagePreview.value
           : this.lastMessagePreview,
@@ -2101,7 +2096,7 @@ class CachedChat extends DataClass implements Insertable<CachedChat> {
           ..write('updatedAt: $updatedAt, ')
           ..write('unreadCount: $unreadCount, ')
           ..write('memberCount: $memberCount, ')
-          ..write('avatarFileId: $avatarFileId, ')
+          ..write('photoId: $photoId, ')
           ..write('lastMessagePreview: $lastMessagePreview, ')
           ..write('notificationsMuted: $notificationsMuted, ')
           ..write('listId: $listId, ')
@@ -2123,7 +2118,7 @@ class CachedChat extends DataClass implements Insertable<CachedChat> {
     updatedAt,
     unreadCount,
     memberCount,
-    avatarFileId,
+    photoId,
     lastMessagePreview,
     notificationsMuted,
     listId,
@@ -2144,7 +2139,7 @@ class CachedChat extends DataClass implements Insertable<CachedChat> {
           other.updatedAt == this.updatedAt &&
           other.unreadCount == this.unreadCount &&
           other.memberCount == this.memberCount &&
-          other.avatarFileId == this.avatarFileId &&
+          other.photoId == this.photoId &&
           other.lastMessagePreview == this.lastMessagePreview &&
           other.notificationsMuted == this.notificationsMuted &&
           other.listId == this.listId &&
@@ -2163,7 +2158,7 @@ class CachedChatsCompanion extends UpdateCompanion<CachedChat> {
   final Value<int> updatedAt;
   final Value<int> unreadCount;
   final Value<int> memberCount;
-  final Value<int?> avatarFileId;
+  final Value<String?> photoId;
   final Value<String?> lastMessagePreview;
   final Value<bool> notificationsMuted;
   final Value<int> listId;
@@ -2180,7 +2175,7 @@ class CachedChatsCompanion extends UpdateCompanion<CachedChat> {
     this.updatedAt = const Value.absent(),
     this.unreadCount = const Value.absent(),
     this.memberCount = const Value.absent(),
-    this.avatarFileId = const Value.absent(),
+    this.photoId = const Value.absent(),
     this.lastMessagePreview = const Value.absent(),
     this.notificationsMuted = const Value.absent(),
     this.listId = const Value.absent(),
@@ -2198,7 +2193,7 @@ class CachedChatsCompanion extends UpdateCompanion<CachedChat> {
     required int updatedAt,
     this.unreadCount = const Value.absent(),
     this.memberCount = const Value.absent(),
-    this.avatarFileId = const Value.absent(),
+    this.photoId = const Value.absent(),
     this.lastMessagePreview = const Value.absent(),
     this.notificationsMuted = const Value.absent(),
     this.listId = const Value.absent(),
@@ -2218,7 +2213,7 @@ class CachedChatsCompanion extends UpdateCompanion<CachedChat> {
     Expression<int>? updatedAt,
     Expression<int>? unreadCount,
     Expression<int>? memberCount,
-    Expression<int>? avatarFileId,
+    Expression<String>? photoId,
     Expression<String>? lastMessagePreview,
     Expression<bool>? notificationsMuted,
     Expression<int>? listId,
@@ -2236,7 +2231,7 @@ class CachedChatsCompanion extends UpdateCompanion<CachedChat> {
       if (updatedAt != null) 'updated_at': updatedAt,
       if (unreadCount != null) 'unread_count': unreadCount,
       if (memberCount != null) 'member_count': memberCount,
-      if (avatarFileId != null) 'avatar_file_id': avatarFileId,
+      if (photoId != null) 'photo_id': photoId,
       if (lastMessagePreview != null)
         'last_message_preview': lastMessagePreview,
       if (notificationsMuted != null) 'notifications_muted': notificationsMuted,
@@ -2257,7 +2252,7 @@ class CachedChatsCompanion extends UpdateCompanion<CachedChat> {
     Value<int>? updatedAt,
     Value<int>? unreadCount,
     Value<int>? memberCount,
-    Value<int?>? avatarFileId,
+    Value<String?>? photoId,
     Value<String?>? lastMessagePreview,
     Value<bool>? notificationsMuted,
     Value<int>? listId,
@@ -2275,7 +2270,7 @@ class CachedChatsCompanion extends UpdateCompanion<CachedChat> {
       updatedAt: updatedAt ?? this.updatedAt,
       unreadCount: unreadCount ?? this.unreadCount,
       memberCount: memberCount ?? this.memberCount,
-      avatarFileId: avatarFileId ?? this.avatarFileId,
+      photoId: photoId ?? this.photoId,
       lastMessagePreview: lastMessagePreview ?? this.lastMessagePreview,
       notificationsMuted: notificationsMuted ?? this.notificationsMuted,
       listId: listId ?? this.listId,
@@ -2319,8 +2314,8 @@ class CachedChatsCompanion extends UpdateCompanion<CachedChat> {
     if (memberCount.present) {
       map['member_count'] = Variable<int>(memberCount.value);
     }
-    if (avatarFileId.present) {
-      map['avatar_file_id'] = Variable<int>(avatarFileId.value);
+    if (photoId.present) {
+      map['photo_id'] = Variable<String>(photoId.value);
     }
     if (lastMessagePreview.present) {
       map['last_message_preview'] = Variable<String>(lastMessagePreview.value);
@@ -2351,7 +2346,7 @@ class CachedChatsCompanion extends UpdateCompanion<CachedChat> {
           ..write('updatedAt: $updatedAt, ')
           ..write('unreadCount: $unreadCount, ')
           ..write('memberCount: $memberCount, ')
-          ..write('avatarFileId: $avatarFileId, ')
+          ..write('photoId: $photoId, ')
           ..write('lastMessagePreview: $lastMessagePreview, ')
           ..write('notificationsMuted: $notificationsMuted, ')
           ..write('listId: $listId, ')
@@ -3548,7 +3543,7 @@ typedef $$CachedChatsTableCreateCompanionBuilder =
       required int updatedAt,
       Value<int> unreadCount,
       Value<int> memberCount,
-      Value<int?> avatarFileId,
+      Value<String?> photoId,
       Value<String?> lastMessagePreview,
       Value<bool> notificationsMuted,
       Value<int> listId,
@@ -3567,7 +3562,7 @@ typedef $$CachedChatsTableUpdateCompanionBuilder =
       Value<int> updatedAt,
       Value<int> unreadCount,
       Value<int> memberCount,
-      Value<int?> avatarFileId,
+      Value<String?> photoId,
       Value<String?> lastMessagePreview,
       Value<bool> notificationsMuted,
       Value<int> listId,
@@ -3638,8 +3633,8 @@ class $$CachedChatsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<int> get avatarFileId => $composableBuilder(
-    column: $table.avatarFileId,
+  ColumnFilters<String> get photoId => $composableBuilder(
+    column: $table.photoId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3728,8 +3723,8 @@ class $$CachedChatsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<int> get avatarFileId => $composableBuilder(
-    column: $table.avatarFileId,
+  ColumnOrderings<String> get photoId => $composableBuilder(
+    column: $table.photoId,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -3808,10 +3803,8 @@ class $$CachedChatsTableAnnotationComposer
     builder: (column) => column,
   );
 
-  GeneratedColumn<int> get avatarFileId => $composableBuilder(
-    column: $table.avatarFileId,
-    builder: (column) => column,
-  );
+  GeneratedColumn<String> get photoId =>
+      $composableBuilder(column: $table.photoId, builder: (column) => column);
 
   GeneratedColumn<String> get lastMessagePreview => $composableBuilder(
     column: $table.lastMessagePreview,
@@ -3872,7 +3865,7 @@ class $$CachedChatsTableTableManager
                 Value<int> updatedAt = const Value.absent(),
                 Value<int> unreadCount = const Value.absent(),
                 Value<int> memberCount = const Value.absent(),
-                Value<int?> avatarFileId = const Value.absent(),
+                Value<String?> photoId = const Value.absent(),
                 Value<String?> lastMessagePreview = const Value.absent(),
                 Value<bool> notificationsMuted = const Value.absent(),
                 Value<int> listId = const Value.absent(),
@@ -3889,7 +3882,7 @@ class $$CachedChatsTableTableManager
                 updatedAt: updatedAt,
                 unreadCount: unreadCount,
                 memberCount: memberCount,
-                avatarFileId: avatarFileId,
+                photoId: photoId,
                 lastMessagePreview: lastMessagePreview,
                 notificationsMuted: notificationsMuted,
                 listId: listId,
@@ -3908,7 +3901,7 @@ class $$CachedChatsTableTableManager
                 required int updatedAt,
                 Value<int> unreadCount = const Value.absent(),
                 Value<int> memberCount = const Value.absent(),
-                Value<int?> avatarFileId = const Value.absent(),
+                Value<String?> photoId = const Value.absent(),
                 Value<String?> lastMessagePreview = const Value.absent(),
                 Value<bool> notificationsMuted = const Value.absent(),
                 Value<int> listId = const Value.absent(),
@@ -3925,7 +3918,7 @@ class $$CachedChatsTableTableManager
                 updatedAt: updatedAt,
                 unreadCount: unreadCount,
                 memberCount: memberCount,
-                avatarFileId: avatarFileId,
+                photoId: photoId,
                 lastMessagePreview: lastMessagePreview,
                 notificationsMuted: notificationsMuted,
                 listId: listId,

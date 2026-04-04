@@ -45,7 +45,7 @@ class _TaskCreateDialogState extends State<TaskCreateDialog> {
   List<User> _members = [];
   List<ProjectLabel> _projectLabels = [];
   final Set<int> _selectedLabelIds = {};
-  final List<({int fileId, String filename})> _attachments = [];
+  final List<({String fileId, String filename})> _attachments = [];
   bool _uploadingFile = false;
 
   @override
@@ -162,7 +162,10 @@ class _TaskCreateDialogState extends State<TaskCreateDialog> {
         name: _nameController.text.trim(),
         description: _descriptionController.text.trim(),
         executor: _selectedExecutorId!,
-        attachmentFileIds: _attachments.map((a) => a.fileId).toList(),
+        attachmentFileIds: _attachments
+            .map((a) => int.tryParse(a.fileId))
+            .whereType<int>()
+            .toList(),
         labelIds: _selectedLabelIds.toList(),
       ),
     );

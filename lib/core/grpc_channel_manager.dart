@@ -8,7 +8,7 @@ import 'package:voosu/generated/grpc_pb/contact.pbgrpc.dart' as contactpb;
 import 'package:voosu/generated/grpc_pb/project.pbgrpc.dart' as projectpb;
 import 'package:voosu/generated/grpc_pb/search.pbgrpc.dart' as searchpb;
 import 'package:voosu/generated/grpc_pb/account.pbgrpc.dart' as accountpb;
-import 'package:voosu/generated/grpc_pb/file.pbgrpc.dart' as filepb;
+import 'package:voosu/generated/grpc_pb/upload.pbgrpc.dart' as uploadpb;
 
 class GrpcChannelManager {
   final ServerConfig _config;
@@ -18,7 +18,7 @@ class GrpcChannelManager {
   authpb.AuthServiceClient? _authClient;
   authpb.AuthServiceClient? _authClientNoInterceptor;
   accountpb.AccountServiceClient? _accountClient;
-  filepb.FileServiceClient? _fileClient;
+  uploadpb.FileServiceClient? _fileClient;
   chatpb.ChatServiceClient? _chatClient;
   projectpb.ProjectServiceClient? _projectClient;
   searchpb.SearchServiceClient? _searchClient;
@@ -57,8 +57,8 @@ class GrpcChannelManager {
     return _accountClient!;
   }
 
-  filepb.FileServiceClient get fileClient {
-    _fileClient ??= filepb.FileServiceClient(
+  uploadpb.FileServiceClient get fileClient {
+    _fileClient ??= uploadpb.FileServiceClient(
       channel,
       interceptors: [_authInterceptor],
     );

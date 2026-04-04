@@ -26,15 +26,13 @@ abstract interface class AccountRepository {
 
   Future<void> updateConfidentialitySettings(int messagePrivacy);
 
-  Future<UploadProfilePhotoResult> uploadProfilePhoto(int fileId);
+  Future<UploadProfilePhotoResult> uploadProfilePhoto(String fileId);
 
-  Future<List<int>> getFile(int fileId);
-
-  void cacheFileBytes(int fileId, List<int> bytes);
+  Future<List<int>> getFile(String fileId);
 }
 
 class UploadProfilePhotoResult {
-  final int avatarFileId;
+  final String photoId;
 
-  UploadProfilePhotoResult({required this.avatarFileId});
+  UploadProfilePhotoResult({required this.photoId});
 }

@@ -243,7 +243,7 @@ class ChatUploadProgress extends ChatEvent {
 class ChatUploadFileComplete extends ChatEvent {
   final String clientId;
   final String filename;
-  final int fileId;
+  final String fileId;
 
   const ChatUploadFileComplete(this.clientId, this.filename, this.fileId);
 

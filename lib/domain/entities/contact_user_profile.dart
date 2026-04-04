@@ -3,7 +3,7 @@ import 'package:equatable/equatable.dart';
 class ContactUserProfile extends Equatable {
   final int id;
   final String username;
-  final String avatarUrl;
+  final String? photoId;
   final String name;
   final String surname;
   final int gender;
@@ -12,7 +12,7 @@ class ContactUserProfile extends Equatable {
   const ContactUserProfile({
     required this.id,
     required this.username,
-    this.avatarUrl = '',
+    this.photoId,
     this.name = '',
     this.surname = '',
     this.gender = 0,
@@ -34,7 +34,7 @@ class ContactUserProfile extends Equatable {
   List<Object?> get props => [
     id,
     username,
-    avatarUrl,
+    photoId,
     name,
     surname,
     gender,

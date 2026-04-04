@@ -203,7 +203,7 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   @override
-  Future<UserSticker> addStickerFromUploadedFile(int fileId) async {
+  Future<UserSticker> addStickerFromUploadedFile(String fileId) async {
     try {
       return await _remote.addStickerFromUploadedFile(fileId);
     } catch (e) {
@@ -305,7 +305,7 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   @override
-  Future<int> uploadFile({
+  Future<String> uploadFile({
     required String filename,
     String mimeType = '',
     required Stream<List<int>> chunkStream,
@@ -427,7 +427,7 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   @override
-  Future<int> uploadGroupPhoto(int groupId, int fileId) async {
+  Future<String> uploadGroupPhoto(int groupId, String fileId) async {
     try {
       return await _remote.uploadGroupPhoto(groupId, fileId);
     } catch (e) {

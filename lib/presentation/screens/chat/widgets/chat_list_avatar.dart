@@ -7,14 +7,14 @@ class ChatListAvatar extends StatelessWidget {
   final String title;
   final bool? isOnline;
   final double size;
-  final int? avatarFileId;
+  final String? photoId;
 
   const ChatListAvatar({
     super.key,
     required this.title,
     this.isOnline,
     this.size = 48,
-    this.avatarFileId,
+    this.photoId,
   });
 
   @override
@@ -25,9 +25,9 @@ class ChatListAvatar extends StatelessWidget {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        avatarFileId != null && avatarFileId != 0
+        photoId != null && photoId!.trim().isNotEmpty
         ? AvatarFromFileId(
-          fileId: avatarFileId,
+          fileId: photoId,
           letter: letter,
           size: size,
           accountRepository: di.sl<AccountRepository>(),

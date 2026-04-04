@@ -8,7 +8,7 @@ class UploadChatFileUseCase {
 
   UploadChatFileUseCase(this._repo, [this._uploadQueue]);
 
-  Future<int> call({
+  Future<String> call({
     required String filename,
     String mimeType = '',
     required Stream<List<int>> chunkStream,
@@ -21,7 +21,7 @@ class UploadChatFileUseCase {
       taskId = queue.begin(filename: filename, totalBytes: totalBytes);
     }
     try {
-      final fileId = await _repo.uploadFile(
+      final storageId = await _repo.uploadFile(
         filename: filename,
         mimeType: mimeType,
         chunkStream: chunkStream,
@@ -40,7 +40,7 @@ class UploadChatFileUseCase {
       if (tid != null && q != null) {
         q.complete(tid);
       }
-      return fileId;
+      return storageId;
     } catch (e) {
       final tid = taskId;
       final q = queue;

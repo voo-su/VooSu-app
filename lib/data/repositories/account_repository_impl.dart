@@ -128,7 +128,7 @@ class AccountRepositoryImpl implements AccountRepository {
   }
 
   @override
-  Future<UploadProfilePhotoResult> uploadProfilePhoto(int fileId) async {
+  Future<UploadProfilePhotoResult> uploadProfilePhoto(String fileId) async {
     try {
       return await dataSource.uploadProfilePhoto(fileId);
     } catch (e) {
@@ -138,25 +138,14 @@ class AccountRepositoryImpl implements AccountRepository {
     }
   }
 
-  final Map<int, List<int>> _fileCache = {};
-
   @override
-  Future<List<int>> getFile(int fileId) async {
-    final cached = _fileCache[fileId];
-    if (cached != null) return cached;
+  Future<List<int>> getFile(String fileId) async {
     try {
-      final bytes = await dataSource.getFile(fileId);
-      _fileCache[fileId] = bytes;
-      return bytes;
+      return await dataSource.getFile(fileId);
     } catch (e) {
       if (e is Failure) rethrow;
       Logs().e('AccountRepository: ошибка getFile', e);
       throw ApiFailure('Ошибка загрузки файла');
     }
-  }
-
-  @override
-  void cacheFileBytes(int fileId, List<int> bytes) {
-    _fileCache[fileId] = bytes;
   }
 }

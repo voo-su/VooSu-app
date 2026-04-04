@@ -204,7 +204,7 @@ class _UserChatScreenState extends State<UserChatScreen> {
     );
   }
 
-  Future<int?> _uploadLargeFile(
+  Future<String?> _uploadLargeFile(
     String path,
     String filename,
     int size, [
@@ -228,7 +228,7 @@ class _UserChatScreenState extends State<UserChatScreen> {
     }
   }
 
-  Future<int?> _uploadFile(
+  Future<String?> _uploadFile(
     String filename,
     Stream<List<int>> chunkStream,
     int totalBytes, [
@@ -251,7 +251,7 @@ class _UserChatScreenState extends State<UserChatScreen> {
     }
   }
 
-  Future<void> _onDownloadAttachment(int fileId, String filename) async {
+  Future<void> _onDownloadAttachment(String fileId, String filename) async {
     final safeName = filename.split(RegExp(r'[/\\]')).last;
     if (safeName.isEmpty) {
       return;
@@ -300,7 +300,7 @@ class _UserChatScreenState extends State<UserChatScreen> {
     }
   }
 
-  Future<List<int>?> _onLoadAttachmentContent(int fileId) async {
+  Future<List<int>?> _onLoadAttachmentContent(String fileId) async {
     try {
       return await di.sl<MediaCacheService>().getFile(fileId);
     } catch (_) {
@@ -566,6 +566,7 @@ class _UserChatScreenState extends State<UserChatScreen> {
                             onVotePoll: _onVotePoll,
                             onDownloadAttachment: _onDownloadAttachment,
                             onLoadAttachmentContent: _onLoadAttachmentContent,
+                            onLoadMixedImageBytes: _onLoadAttachmentContent,
                             onSystemMessageUserTap: _onSystemMessageUserTap,
                             onCollectStickerFromMessage: (id) => context
                                 .read<ChatBloc>()
@@ -660,6 +661,7 @@ class _UserChatScreenState extends State<UserChatScreen> {
                             onVotePoll: _onVotePoll,
                             onDownloadAttachment: _onDownloadAttachment,
                             onLoadAttachmentContent: _onLoadAttachmentContent,
+                            onLoadMixedImageBytes: _onLoadAttachmentContent,
                             onSystemMessageUserTap: _onSystemMessageUserTap,
                             onCollectStickerFromMessage: (id) => context
                                 .read<ChatBloc>()

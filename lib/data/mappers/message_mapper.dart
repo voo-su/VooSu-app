@@ -91,19 +91,17 @@ class MessageMapper {
     switch (a.whichAttachment()) {
       case chatpb.ChatAttachment_Attachment.image:
         final img = a.image;
-        final ext = img.externalUrl;
         return ChatAttachment(
-          fileId: img.fileId.toInt(),
+          fileId: img.fileId,
           filename: img.filename,
           mimeType: img.mimeType,
           size: img.size.toInt(),
           type: 1,
-          externalUrl: ext.isNotEmpty ? ext : null,
         );
       case chatpb.ChatAttachment_Attachment.document:
         final doc = a.document;
         return ChatAttachment(
-          fileId: doc.fileId.toInt(),
+          fileId: doc.fileId,
           filename: doc.filename,
           mimeType: doc.mimeType,
           size: doc.size.toInt(),
@@ -112,7 +110,7 @@ class MessageMapper {
       case chatpb.ChatAttachment_Attachment.video:
         final vid = a.video;
         return ChatAttachment(
-          fileId: vid.fileId.toInt(),
+          fileId: vid.fileId,
           filename: vid.filename,
           mimeType: vid.mimeType,
           size: vid.size.toInt(),
@@ -121,7 +119,7 @@ class MessageMapper {
       case chatpb.ChatAttachment_Attachment.audio:
         final aud = a.audio;
         return ChatAttachment(
-          fileId: aud.fileId.toInt(),
+          fileId: aud.fileId,
           filename: aud.filename,
           mimeType: aud.mimeType,
           size: aud.size.toInt(),
@@ -129,7 +127,7 @@ class MessageMapper {
         );
       case chatpb.ChatAttachment_Attachment.notSet:
         return const ChatAttachment(
-          fileId: 0,
+          fileId: '',
           filename: '',
           mimeType: '',
           size: 0,

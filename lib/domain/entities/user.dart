@@ -8,7 +8,7 @@ class User extends Equatable {
   final int gender;
   final String birthday;
   final String about;
-  final int? avatarFileId;
+  final String? photoId;
   final int messagePrivacy;
 
   const User({
@@ -19,7 +19,7 @@ class User extends Equatable {
     this.gender = 0,
     this.birthday = '',
     this.about = '',
-    this.avatarFileId,
+    this.photoId,
     this.messagePrivacy = 0,
   });
 
@@ -30,7 +30,7 @@ class User extends Equatable {
     int? gender,
     String? birthday,
     String? about,
-    int? avatarFileId,
+    String? photoId,
     int? messagePrivacy,
   }) {
     return User(
@@ -41,7 +41,7 @@ class User extends Equatable {
       gender: gender ?? this.gender,
       birthday: birthday ?? this.birthday,
       about: about ?? this.about,
-      avatarFileId: avatarFileId ?? this.avatarFileId,
+      photoId: photoId ?? this.photoId,
       messagePrivacy: messagePrivacy ?? this.messagePrivacy,
     );
   }
@@ -61,7 +61,7 @@ class User extends Equatable {
     gender,
     birthday,
     about,
-    avatarFileId,
+    photoId,
     messagePrivacy,
   ];
 }

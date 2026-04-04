@@ -683,7 +683,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
     final attachmentUploads = <AttachmentUpload>[];
     for (final a in pending.attachments) {
-      if (a.fileId != null && a.fileId != 0) {
+      if (a.fileId != null && a.fileId!.isNotEmpty) {
         attachmentUploads.add(
           AttachmentUpload(filename: a.filename, fileId: a.fileId!),
         );
@@ -719,7 +719,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           ? chat.peerGroupId
           : 0;
         final attachmentsList = pending.attachments
-          .where((a) => a.fileId != null && a.fileId != 0)
+          .where((a) => a.fileId != null && a.fileId!.isNotEmpty)
           .map((a) => {'filename': a.filename, 'fileId': a.fileId})
           .toList();
         final attachmentsJson = attachmentsList.isEmpty

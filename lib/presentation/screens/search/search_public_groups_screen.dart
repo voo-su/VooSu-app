@@ -8,7 +8,9 @@ import 'package:voosu/core/layout/responsive.dart';
 import 'package:voosu/core/router/app_router.dart';
 import 'package:voosu/domain/entities/overt_group_listing.dart';
 import 'package:voosu/domain/usecases/chat/request_group_join_usecase.dart';
+import 'package:voosu/domain/repositories/account_repository.dart';
 import 'package:voosu/domain/usecases/chat/search_public_groups_usecase.dart';
+import 'package:voosu/presentation/widgets/avatar_from_file_id.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_bloc.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_event.dart';
 import 'package:voosu/presentation/widgets/side_navigation.dart';
@@ -330,8 +332,10 @@ class _GroupCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final url = group.avatarUrl.trim();
-    final isHttp = url.startsWith('http://') || url.startsWith('https://');
+    final fid = group.photoId?.trim();
+    final letter = group.name.isNotEmpty
+        ? group.name[0].toUpperCase()
+        : '?';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
@@ -348,18 +352,12 @@ class _GroupCard extends StatelessWidget {
                   child: SizedBox(
                     width: 52,
                     height: 52,
-                    child: isHttp
-                        ? Image.network(
-                            url,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) =>
-                                ColoredBox(
-                              color: theme.colorScheme.primaryContainer,
-                              child: Icon(
-                                Icons.groups_rounded,
-                                color: theme.colorScheme.onPrimaryContainer,
-                              ),
-                            ),
+                    child: fid != null && fid.isNotEmpty
+                        ? AvatarFromFileId(
+                            fileId: fid,
+                            letter: letter,
+                            size: 52,
+                            accountRepository: di.sl<AccountRepository>(),
                           )
                         : ColoredBox(
                             color: theme.colorScheme.primaryContainer,

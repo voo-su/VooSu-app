@@ -6,5 +6,5 @@ class AddStickerFromUploadedFileUseCase {
 
   AddStickerFromUploadedFileUseCase(this._repo);
 
-  Future<UserSticker> call(int fileId) => _repo.addStickerFromUploadedFile(fileId);
+  Future<UserSticker> call(String fileId) => _repo.addStickerFromUploadedFile(fileId);
 }

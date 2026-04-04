@@ -273,7 +273,7 @@ class _GlobalUserSearchScreenState extends State<GlobalUserSearchScreen> {
                     title: titleForAvatar,
                     isOnline: false,
                     size: 48,
-                    avatarFileId: user.avatarFileId,
+                    photoId: user.photoId,
                   ),
                   const SizedBox(width: 12),
                   Expanded(

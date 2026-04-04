@@ -7,7 +7,9 @@ import 'package:voosu/core/router/app_router.dart';
 import 'package:voosu/domain/entities/contact_list_item.dart';
 import 'package:voosu/domain/entities/contact_user_profile.dart';
 import 'package:voosu/domain/usecases/contact/get_contact_user_usecase.dart';
+import 'package:voosu/domain/repositories/account_repository.dart';
 import 'package:voosu/domain/usecases/contact/get_contacts_usecase.dart';
+import 'package:voosu/presentation/widgets/avatar_from_file_id.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_bloc.dart';
 import 'package:voosu/presentation/screens/chat/bloc/chat_event.dart';
 import 'package:voosu/presentation/widgets/side_navigation.dart';
@@ -264,7 +266,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
               child: Row(
                 children: [
                   _ContactAvatar(
-                    avatarUrl: item.avatarUrl,
+                    photoId: item.photoId,
                     username: item.username,
                     radius: 24,
                   ),
@@ -310,12 +312,12 @@ class _ContactsScreenState extends State<ContactsScreen> {
 }
 
 class _ContactAvatar extends StatelessWidget {
-  final String avatarUrl;
+  final String? photoId;
   final String username;
   final double radius;
 
   const _ContactAvatar({
-    required this.avatarUrl,
+    required this.photoId,
     required this.username,
     required this.radius,
   });
@@ -326,15 +328,13 @@ class _ContactAvatar extends StatelessWidget {
     final String initial = username.isNotEmpty
         ? username.characters.first.toUpperCase()
         : '?';
-    final url = avatarUrl.trim();
-    final isHttp = url.startsWith('http://') || url.startsWith('https://');
-    if (isHttp) {
-      return CircleAvatar(
-        radius: radius,
-        backgroundColor: theme.colorScheme.primaryContainer,
-        backgroundImage: NetworkImage(url),
-        onBackgroundImageError: (Object exception, StackTrace? stackTrace) {},
-        child: null,
+    final id = photoId?.trim();
+    if (id != null && id.isNotEmpty) {
+      return AvatarFromFileId(
+        fileId: id,
+        letter: initial,
+        size: radius * 2,
+        accountRepository: di.sl<AccountRepository>(),
       );
     }
     return CircleAvatar(
@@ -439,7 +439,7 @@ class _ContactProfileSheetState extends State<_ContactProfileSheet> {
                   children: [
                     Center(
                       child: _ContactAvatar(
-                        avatarUrl: _profile!.avatarUrl,
+                        photoId: _profile!.photoId,
                         username: _profile!.username,
                         radius: 50,
                       ),

@@ -63,13 +63,13 @@ class AuthClearNeedsUpdate extends AuthEvent {
 }
 
 class AuthProfilePhotoUpdated extends AuthEvent {
-  final int avatarFileId;
+  final String photoId;
   final List<int>? imageBytes;
 
-  const AuthProfilePhotoUpdated(this.avatarFileId, [this.imageBytes]);
+  const AuthProfilePhotoUpdated(this.photoId, [this.imageBytes]);
 
   @override
-  List<Object?> get props => [avatarFileId, imageBytes];
+  List<Object?> get props => [photoId, imageBytes];
 }
 
 class AuthUsernameUpdated extends AuthEvent {

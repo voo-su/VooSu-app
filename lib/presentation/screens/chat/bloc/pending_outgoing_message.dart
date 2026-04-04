@@ -4,7 +4,7 @@ class PendingAttachment extends Equatable {
   final String filename;
   final int size;
   final double progress;
-  final int? fileId;
+  final String? fileId;
 
   const PendingAttachment({
     required this.filename,
@@ -17,7 +17,7 @@ class PendingAttachment extends Equatable {
     String? filename,
     int? size,
     double? progress,
-    int? fileId,
+    String? fileId,
   }) {
     return PendingAttachment(
       filename: filename ?? this.filename,
@@ -29,7 +29,7 @@ class PendingAttachment extends Equatable {
 
   bool get isUploading => progress < 1.0 && fileId == null;
 
-  bool get isReady => fileId != null && fileId! != 0;
+  bool get isReady => fileId != null && fileId!.isNotEmpty;
 
   @override
   List<Object?> get props => [filename, size, progress, fileId];

@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:voosu/domain/repositories/account_repository.dart';
 
 class AvatarFromFileId extends StatefulWidget {
-  final int? fileId;
+  final String? fileId;
   final String letter;
   final double size;
   final AccountRepository? accountRepository;
@@ -25,7 +25,8 @@ class _AvatarFromFileIdState extends State<AvatarFromFileId> {
   Uint8List? _bytes;
   bool _loading = false;
 
-  bool get _hasFileId => widget.fileId != null && widget.fileId != 0;
+  bool get _hasFileId =>
+      widget.fileId != null && widget.fileId!.trim().isNotEmpty;
 
   Future<void> _loadBytes() async {
     if (!_hasFileId || widget.accountRepository == null) {
@@ -39,7 +40,7 @@ class _AvatarFromFileIdState extends State<AvatarFromFileId> {
     }
     setState(() => _loading = true);
     try {
-      final bytes = await widget.accountRepository!.getFile(widget.fileId!);
+      final bytes = await widget.accountRepository!.getFile(widget.fileId!.trim());
       if (mounted) {
         setState(() {
           _bytes = Uint8List.fromList(bytes);

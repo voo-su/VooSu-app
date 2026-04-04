@@ -48,7 +48,7 @@ abstract class ChatRepository {
 
   Future<List<UserSticker>> listMyStickers();
 
-  Future<UserSticker> addStickerFromUploadedFile(int fileId);
+  Future<UserSticker> addStickerFromUploadedFile(String fileId);
 
   Future<void> deleteMyStickers(List<int> stickerIds);
 
@@ -76,7 +76,7 @@ abstract class ChatRepository {
     int replyToMessageId = 0,
   });
 
-  Future<int> uploadFile({
+  Future<String> uploadFile({
     required String filename,
     String mimeType = '',
     required Stream<List<int>> chunkStream,
@@ -111,7 +111,7 @@ abstract class ChatRepository {
 
   Future<void> sendTyping({int? peerUserId, int? peerGroupId});
 
-  Future<int> uploadGroupPhoto(int groupId, int fileId);
+  Future<String> uploadGroupPhoto(int groupId, String fileId);
 
   Future<void> setChatNotifications(Chat chat, bool notificationsMuted);
 

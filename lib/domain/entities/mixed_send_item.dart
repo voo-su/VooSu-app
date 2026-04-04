@@ -4,12 +4,12 @@ import 'package:voosu/domain/entities/attachment_upload.dart';
 class MixedSendItem {
   final int itemType;
   final String content;
-  final int imageFileId;
+  final String imageFileId;
 
   const MixedSendItem({
     required this.itemType,
     this.content = '',
-    this.imageFileId = 0,
+    this.imageFileId = '',
   });
 }
 
@@ -19,7 +19,7 @@ bool shouldSendAsMixedMessage(String content, List<AttachmentUpload>? attachment
     return false;
   }
   for (final a in attachments) {
-    if (a.fileId == 0 || !AttachmentType.isImageFilename(a.filename)) {
+    if (a.fileId.isEmpty || !AttachmentType.isImageFilename(a.filename)) {
       return false;
     }
   }

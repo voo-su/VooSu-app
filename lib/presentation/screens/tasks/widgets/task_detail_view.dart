@@ -126,7 +126,11 @@ class _TaskDetailViewState extends State<TaskDetailView>
           text.isEmpty && (attachments != null && attachments.isNotEmpty)
           ? '[файлы]'
           : text;
-      final fileIds = attachments?.map((a) => a.fileId).toList() ?? [];
+      final fileIds = attachments
+              ?.map((a) => int.tryParse(a.fileId))
+              .whereType<int>()
+              .toList() ??
+          <int>[];
       await di.sl<AddTaskCommentUseCase>()(
         widget.task.id,
         body,
@@ -147,7 +151,7 @@ class _TaskDetailViewState extends State<TaskDetailView>
     }
   }
 
-  Future<int?> _uploadCommentFile(
+  Future<String?> _uploadCommentFile(
     String filename,
     Stream<List<int>> chunkStream,
     int totalBytes, [
@@ -165,7 +169,7 @@ class _TaskDetailViewState extends State<TaskDetailView>
     }
   }
 
-  Future<int?> _uploadCommentLargeFile(
+  Future<String?> _uploadCommentLargeFile(
     String path,
     String filename,
     int size, [
@@ -186,7 +190,7 @@ class _TaskDetailViewState extends State<TaskDetailView>
 
   Future<void> _downloadAttachment(int fileId, String filename) async {
     try {
-      final bytes = await di.sl<AccountRepository>().getFile(fileId);
+      final bytes = await di.sl<AccountRepository>().getFile(fileId.toString());
       if (bytes.isEmpty || !mounted) {
         return;
       }

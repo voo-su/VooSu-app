@@ -488,7 +488,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   ) {
     final u = state.user;
     if (u == null) return;
-    final newUser = u.copyWith(avatarFileId: event.avatarFileId);
+    final newUser = u.copyWith(photoId: event.photoId);
     tokenStorage.saveUser(newUser);
     emit(state.copyWith(user: newUser));
   }

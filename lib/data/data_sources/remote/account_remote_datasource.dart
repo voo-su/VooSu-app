@@ -12,7 +12,7 @@ import 'package:voosu/data/data_sources/local/user_local_data_source.dart';
 import 'package:voosu/domain/entities/device.dart';
 import 'package:voosu/domain/repositories/account_repository.dart';
 import 'package:voosu/generated/grpc_pb/account.pbgrpc.dart' as accountpb;
-import 'package:voosu/generated/grpc_pb/file.pbgrpc.dart' as filepb;
+import 'package:voosu/generated/grpc_pb/upload.pbgrpc.dart' as uploadpb;
 
 abstract class IAccountRemoteDataSource {
   Future<void> changeUsername(String username);
@@ -37,9 +37,9 @@ abstract class IAccountRemoteDataSource {
 
   Future<accountpb.GetMissedUpdatesResponse> getMissedUpdates(int pts);
 
-  Future<UploadProfilePhotoResult> uploadProfilePhoto(int fileId);
+  Future<UploadProfilePhotoResult> uploadProfilePhoto(String fileId);
 
-  Future<List<int>> getFile(int fileId);
+  Future<List<int>> getFile(String fileId);
 
   Future<accountpb.GetNotificationsResponse> getNotifications({
     int limit = 50,
@@ -199,14 +199,14 @@ class AccountRemoteDataSource implements IAccountRemoteDataSource {
   }
 
   @override
-  Future<UploadProfilePhotoResult> uploadProfilePhoto(int fileId) async {
+  Future<UploadProfilePhotoResult> uploadProfilePhoto(String fileId) async {
     Logs().d('AccountRemoteDataSource: загрузка фото профиля');
     try {
-      final request = accountpb.UploadProfilePhotoRequest(fileId: Int64(fileId));
+      final request = accountpb.UploadProfilePhotoRequest(fileId: fileId);
       final response = await _client.uploadProfilePhoto(request);
       Logs().i('AccountRemoteDataSource: фото профиля загружено');
       return UploadProfilePhotoResult(
-        avatarFileId: response.avatarFileId.toInt(),
+        photoId: response.photoId,
       );
     } on GrpcError catch (e) {
       Logs().e('AccountRemoteDataSource: ошибка загрузки фото', e);
@@ -218,11 +218,20 @@ class AccountRemoteDataSource implements IAccountRemoteDataSource {
   }
 
   @override
-  Future<List<int>> getFile(int fileId) async {
+  Future<List<int>> getFile(String fileId) async {
     try {
-      final request = filepb.GetFileRequest(fileId: Int64(fileId));
-      final response = await _channelManager.fileClient.getFile(request);
-      return response.content;
+      final request = uploadpb.GetFileRequest(
+        fileId: fileId,
+        offset: Int64(0),
+      );
+      final stream = _channelManager.fileClient.getFile(request);
+      final out = <int>[];
+      await for (final chunk in stream) {
+        if (chunk.data.isNotEmpty) {
+          out.addAll(chunk.data);
+        }
+      }
+      return out;
     } on GrpcError catch (e) {
       Logs().e('AccountRemoteDataSource: ошибка getFile', e);
       throwGrpcError(e, 'Ошибка загрузки файла');

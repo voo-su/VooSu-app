@@ -86,7 +86,7 @@ class ChatListItem extends StatelessWidget {
               ChatListAvatar(
                 title: titleStr,
                 isOnline: isOnline,
-                avatarFileId: chat.avatarFileId,
+                photoId: chat.photoId,
               ),
               const SizedBox(width: 12),
               Expanded(

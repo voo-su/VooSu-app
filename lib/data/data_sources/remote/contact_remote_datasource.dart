@@ -4,6 +4,7 @@ import 'package:voosu/core/auth_guard.dart';
 import 'package:voosu/core/failures.dart';
 import 'package:voosu/core/grpc_channel_manager.dart';
 import 'package:voosu/core/grpc_error_handler.dart';
+import 'package:voosu/core/storage_file_id.dart';
 import 'package:voosu/core/log/logs.dart';
 import 'package:voosu/domain/entities/contact_list_item.dart';
 import 'package:voosu/domain/entities/contact_user_profile.dart';
@@ -32,13 +33,16 @@ class ContactRemoteDataSource implements IContactRemoteDataSource {
       );
       return resp.items
           .map(
-            (e) => ContactListItem(
-              id: e.id.toInt(),
-              username: e.username,
-              name: e.name,
-              surname: e.surname,
-              avatarUrl: e.avatar,
-            ),
+            (e) {
+              final av = e.photoId.trim();
+              return ContactListItem(
+                id: e.id.toInt(),
+                username: e.username,
+                name: e.name,
+                surname: e.surname,
+                photoId: looksLikeStorageFileId(av) ? av : null,
+              );
+            },
           )
           .toList();
     } on GrpcError catch (e) {
@@ -56,10 +60,11 @@ class ContactRemoteDataSource implements IContactRemoteDataSource {
     try {
       final req = contactpb.GetUserRequest(id: Int64(id));
       final r = await _authGuard.execute(() => _client.getUser(req));
+      final av = r.photoId.trim();
       return ContactUserProfile(
         id: r.id.toInt(),
         username: r.username,
-        avatarUrl: r.avatar,
+        photoId: looksLikeStorageFileId(av) ? av : null,
         name: r.name,
         surname: r.surname,
         gender: r.gender,

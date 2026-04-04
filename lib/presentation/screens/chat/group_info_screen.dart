@@ -292,9 +292,10 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
                       child: Stack(
                         alignment: Alignment.center,
                         children: [
-                          _info!.avatarFileId != null && _info!.avatarFileId! != 0
+                          _info!.photoId != null &&
+                              _info!.photoId!.trim().isNotEmpty
                             ? AvatarFromFileId(
-                              fileId: _info!.avatarFileId,
+                              fileId: _info!.photoId,
                               letter: _info!.title.isNotEmpty
                                 ? _info!.title[0].toUpperCase()
                                 : '?',

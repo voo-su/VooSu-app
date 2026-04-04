@@ -10,7 +10,7 @@ class Chat {
   final DateTime createdAt;
   final int unreadCount;
   final int memberCount;
-  final int? avatarFileId;
+  final String? photoId;
   final String? lastMessagePreview;
   final bool notificationsMuted;
   final int listId;
@@ -28,7 +28,7 @@ class Chat {
     required this.createdAt,
     this.unreadCount = 0,
     this.memberCount = 0,
-    this.avatarFileId,
+    this.photoId,
     this.lastMessagePreview,
     this.notificationsMuted = false,
     this.listId = 0,
@@ -38,7 +38,7 @@ class Chat {
   Chat copyWith({
     int? unreadCount,
     int? memberCount,
-    int? avatarFileId,
+    String? photoId,
     String? lastMessagePreview,
     bool? notificationsMuted,
     int? listId,
@@ -56,7 +56,7 @@ class Chat {
       createdAt: createdAt,
       unreadCount: unreadCount ?? this.unreadCount,
       memberCount: memberCount ?? this.memberCount,
-      avatarFileId: avatarFileId ?? this.avatarFileId,
+      photoId: photoId ?? this.photoId,
       lastMessagePreview: lastMessagePreview ?? this.lastMessagePreview,
       notificationsMuted: notificationsMuted ?? this.notificationsMuted,
       listId: listId ?? this.listId,

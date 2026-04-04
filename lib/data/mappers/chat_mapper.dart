@@ -35,9 +35,8 @@ class ChatMapper {
     }
 
     final memberCount = (isGroup && group != null) ? group.memberCount : 0;
-    final avatarFileId = (isGroup && group != null && group.avatarFileId > 0)
-      ? group.avatarFileId.toInt()
-      : null;
+    final rawGroupAvatar = (isGroup && group != null) ? group.photoId.trim() : '';
+    final photoId = rawGroupAvatar.isNotEmpty ? rawGroupAvatar : null;
 
     String? lastMessagePreview;
     if (chat.hasLastMessage()) {
@@ -85,7 +84,7 @@ class ChatMapper {
       ),
       unreadCount: chat.unreadCount,
       memberCount: memberCount,
-      avatarFileId: avatarFileId,
+      photoId: photoId,
       lastMessagePreview: lastMessagePreview,
       notificationsMuted: chat.notificationsMuted,
       listId: listId,

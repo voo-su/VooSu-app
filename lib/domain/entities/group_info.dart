@@ -4,7 +4,7 @@ class GroupInfo {
   final int id;
   final String title;
   final int memberCount;
-  final int? avatarFileId;
+  final String? photoId;
   final List<GroupMemberInfo> members;
   final List<User> users;
 
@@ -12,7 +12,7 @@ class GroupInfo {
     required this.id,
     required this.title,
     required this.memberCount,
-    this.avatarFileId,
+    this.photoId,
     required this.members,
     required this.users,
   });

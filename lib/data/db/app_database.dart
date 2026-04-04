@@ -10,6 +10,7 @@ import 'package:voosu/domain/entities/poll.dart';
 import 'package:voosu/domain/entities/reply_markup.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:voosu/core/storage_file_id.dart';
 
 part 'app_database.g.dart';
 
@@ -91,7 +92,7 @@ class CachedChats extends Table {
 
   IntColumn get memberCount => integer().withDefault(const Constant(0))();
 
-  IntColumn get avatarFileId => integer().nullable()();
+  TextColumn get photoId => text().nullable()();
 
   TextColumn get lastMessagePreview => text().nullable()();
 
@@ -136,7 +137,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -160,6 +161,17 @@ class AppDatabase extends _$AppDatabase {
       if (from < 5) {
         await migrator.addColumn(cachedMessages, cachedMessages.replyMarkupJson);
         await migrator.addColumn(cachedMessages, cachedMessages.pollJson);
+      }
+      if (from < 6) {
+        await migrator.deleteTable('cached_chats');
+        await migrator.createTable(cachedChats);
+      }
+      if (from < 7) {
+        await migrator.renameColumn(
+          cachedChats,
+          'avatar_file_id',
+          cachedChats.photoId,
+        );
       }
     },
   );
@@ -231,7 +243,6 @@ class AppDatabase extends _$AppDatabase {
                   'mimeType': a.mimeType,
                   'size': a.size,
                   'type': a.type,
-                  'externalUrl': a.externalUrl,
                 },
               )
               .toList(),
@@ -369,7 +380,7 @@ class AppDatabase extends _$AppDatabase {
       createdAt: DateTime.fromMillisecondsSinceEpoch(row.updatedAt * 1000),
       unreadCount: row.unreadCount,
       memberCount: row.memberCount,
-      avatarFileId: row.avatarFileId,
+      photoId: row.photoId,
       lastMessagePreview: row.lastMessagePreview,
       notificationsMuted: row.notificationsMuted,
       listId: row.listId,
@@ -412,7 +423,7 @@ class AppDatabase extends _$AppDatabase {
           updatedAt: chat.createdAt.millisecondsSinceEpoch ~/ 1000,
           unreadCount: Value(chat.unreadCount),
           memberCount: Value(chat.memberCount),
-          avatarFileId: Value(chat.avatarFileId),
+          photoId: Value(chat.photoId),
           lastMessagePreview: Value(chat.lastMessagePreview),
           notificationsMuted: Value(chat.notificationsMuted),
           listId: Value(chat.listId),
@@ -484,12 +495,11 @@ class AppDatabase extends _$AppDatabase {
         attachments = list.map((e) {
           final m = e as Map<String, dynamic>;
           return ChatAttachment(
-            fileId: (m['fileId'] as num?)?.toInt() ?? 0,
+            fileId: storageFileIdFromJson(m['fileId']),
             filename: m['filename'] as String? ?? '',
             mimeType: m['mimeType'] as String? ?? '',
             size: (m['size'] as num?)?.toInt() ?? 0,
             type: (m['type'] as num?)?.toInt() ?? 0,
-            externalUrl: m['externalUrl'] as String?,
           );
         }).toList();
       } catch (_) {}

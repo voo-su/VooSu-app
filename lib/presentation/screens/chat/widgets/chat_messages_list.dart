@@ -31,9 +31,10 @@ class ChatMessagesList extends StatelessWidget {
   final void Function(Message)? onForward;
   final void Function(int messageId, String callbackData)? onInlineButtonPressed;
   final void Function(int messageId, int optionId)? onVotePoll;
-  final Future<void> Function(int fileId, String filename)?
+  final Future<void> Function(String fileId, String filename)?
   onDownloadAttachment;
-  final Future<List<int>?> Function(int fileId)? onLoadAttachmentContent;
+  final Future<List<int>?> Function(String fileId)? onLoadAttachmentContent;
+  final Future<List<int>?> Function(String storageFileId)? onLoadMixedImageBytes;
   final void Function(int userId)? onSystemMessageUserTap;
   final void Function(int messageId)? onCollectStickerFromMessage;
 
@@ -47,6 +48,7 @@ class ChatMessagesList extends StatelessWidget {
     this.onVotePoll,
     this.onDownloadAttachment,
     this.onLoadAttachmentContent,
+    this.onLoadMixedImageBytes,
     this.onSystemMessageUserTap,
     this.onCollectStickerFromMessage,
   });
@@ -150,6 +152,7 @@ class ChatMessagesList extends StatelessWidget {
               onVotePoll: onVotePoll,
               onDownloadAttachment: onDownloadAttachment,
               onLoadAttachmentContent: onLoadAttachmentContent,
+              onLoadMixedImageBytes: onLoadMixedImageBytes,
               onDelete: () async {
                 final forEveryone = await showDeleteScopeDialog(
                   context,

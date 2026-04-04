@@ -174,7 +174,7 @@ class ChatContentHeader extends StatelessWidget {
                         title: title,
                         isOnline: isOnline,
                         size: 40,
-                        avatarFileId: chat.avatarFileId,
+                        photoId: chat.photoId,
                       ),
                       const SizedBox(width: 12),
                       Expanded(

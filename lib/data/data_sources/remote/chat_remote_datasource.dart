@@ -7,6 +7,7 @@ import 'package:voosu/core/auth_guard.dart';
 import 'package:voosu/core/failures.dart';
 import 'package:voosu/core/grpc_channel_manager.dart';
 import 'package:voosu/core/grpc_error_handler.dart';
+import 'package:voosu/core/storage_file_id.dart';
 import 'package:voosu/core/log/logs.dart';
 import 'package:voosu/data/mappers/chat_mapper.dart';
 import 'package:voosu/data/mappers/message_mapper.dart';
@@ -21,7 +22,7 @@ import 'package:voosu/domain/entities/overt_group_listing.dart';
 import 'package:voosu/domain/entities/user_sticker.dart';
 import 'package:voosu/generated/grpc_pb/chat.pbgrpc.dart' as chatpb;
 import 'package:voosu/generated/grpc_pb/common.pb.dart' as commonpb;
-import 'package:voosu/generated/grpc_pb/file.pbgrpc.dart' as filepb;
+import 'package:voosu/generated/grpc_pb/upload.pbgrpc.dart' as uploadpb;
 
 abstract class IChatRemoteDataSource {
   Future<Chat> createChat(int userId);
@@ -62,7 +63,7 @@ abstract class IChatRemoteDataSource {
 
   Future<List<UserSticker>> listMyStickers();
 
-  Future<UserSticker> addStickerFromUploadedFile(int fileId);
+  Future<UserSticker> addStickerFromUploadedFile(String fileId);
 
   Future<void> deleteMyStickers(List<int> stickerIds);
 
@@ -92,7 +93,7 @@ abstract class IChatRemoteDataSource {
     int replyToMessageId = 0,
   });
 
-  Future<int> uploadFile({
+  Future<String> uploadFile({
     required String filename,
     String mimeType = '',
     required Stream<List<int>> chunkStream,
@@ -115,7 +116,7 @@ abstract class IChatRemoteDataSource {
 
   Future<void> sendTyping({int? peerUserId, int? peerGroupId});
 
-  Future<int> uploadGroupPhoto(int groupId, int fileId);
+  Future<String> uploadGroupPhoto(int groupId, String fileId);
 
   Future<void> setChatNotifications(Chat chat, bool notificationsMuted);
 
@@ -160,7 +161,7 @@ class ChatRemoteDataSource implements IChatRemoteDataSource {
   ChatRemoteDataSource(this._channelManager, this._authGuard);
 
   chatpb.ChatServiceClient get _client => _channelManager.chatClient;
-  filepb.FileServiceClient get _fileClient => _channelManager.fileClient;
+  uploadpb.FileServiceClient get _fileClient => _channelManager.fileClient;
 
   @override
   Future<Chat> createChat(int userId) async {
@@ -235,14 +236,13 @@ class ChatRemoteDataSource implements IChatRemoteDataSource {
         ))
           .toList();
       final users = UserMapper.listFromProto(resp.users);
-      final avatarFileId = resp.group.avatarFileId > 0
-        ? resp.group.avatarFileId.toInt()
-        : null;
+      final rawAvatar = resp.group.photoId.trim();
+      final photoId = looksLikeStorageFileId(rawAvatar) ? rawAvatar : null;
       return GroupInfo(
         id: resp.group.id.toInt(),
         title: resp.group.title,
         memberCount: resp.group.memberCount,
-        avatarFileId: avatarFileId,
+        photoId: photoId,
         members: members,
         users: users,
       );
@@ -325,7 +325,7 @@ class ChatRemoteDataSource implements IChatRemoteDataSource {
         : commonpb.Peer(userId: Int64(peerUserId ?? 0));
       final attachmentProtos = (attachments ?? []).map((a) => chatpb.AttachmentUpload(
         filename: a.filename,
-        fileId: Int64(a.fileId),
+        fileId: a.fileId,
       ))
       .toList();
       final req = chatpb.SendMessageRequest(
@@ -370,7 +370,7 @@ class ChatRemoteDataSource implements IChatRemoteDataSource {
             (e) => chatpb.MixedMessageItem(
               itemType: e.itemType,
               content: e.content,
-              imageFileId: e.imageFileId > 0 ? Int64(e.imageFileId) : null,
+              imageFileId: e.imageFileId.isNotEmpty ? e.imageFileId : null,
             ),
           )
           .toList();
@@ -413,11 +413,11 @@ class ChatRemoteDataSource implements IChatRemoteDataSource {
   }
 
   @override
-  Future<UserSticker> addStickerFromUploadedFile(int fileId) async {
+  Future<UserSticker> addStickerFromUploadedFile(String fileId) async {
     try {
       final resp = await _authGuard.execute(
         () => _client.addStickerFromFile(
-          chatpb.AddStickerFromFileRequest(fileId: Int64(fileId)),
+          chatpb.AddStickerFromFileRequest(fileId: fileId),
         ),
       );
       return UserSticker(id: resp.id.toInt(), url: resp.url);
@@ -561,7 +561,7 @@ class ChatRemoteDataSource implements IChatRemoteDataSource {
   }
 
   @override
-  Future<int> uploadFile({
+  Future<String> uploadFile({
     required String filename,
     String mimeType = '',
     required Stream<List<int>> chunkStream,
@@ -571,15 +571,15 @@ class ChatRemoteDataSource implements IChatRemoteDataSource {
     Logs().d('ChatRemoteDataSource: uploadFile filename=$filename');
     try {
       const maxPayload = 2 * 1024 * 1024;
-      Stream<filepb.UploadFileRequest> requestStream() async* {
-        final meta = filepb.UploadFileMeta(
+      Stream<uploadpb.UploadFileRequest> requestStream() async* {
+        final meta = uploadpb.UploadFileMeta(
           filename: filename,
           mimeType: mimeType,
         );
         if (totalBytes != null && totalBytes > 0) {
           meta.totalBytes = Int64(totalBytes);
         }
-        yield filepb.UploadFileRequest(meta: meta);
+        yield uploadpb.UploadFileRequest(meta: meta);
         var partNumber = 1;
         var sent = 0;
         await for (final chunk in chunkStream) {
@@ -589,8 +589,8 @@ class ChatRemoteDataSource implements IChatRemoteDataSource {
           for (var i = 0; i < chunk.length; i += maxPayload) {
             final end = math.min(i + maxPayload, chunk.length);
             final piece = chunk.sublist(i, end);
-            yield filepb.UploadFileRequest(
-              chunk: filepb.FileChunk(
+            yield uploadpb.UploadFileRequest(
+              chunk: uploadpb.FileChunk(
                 partNumber: partNumber++,
                 data: piece,
               ),
@@ -602,7 +602,7 @@ class ChatRemoteDataSource implements IChatRemoteDataSource {
       }
 
       final resp = await _authGuard.execute(() => _fileClient.uploadFile(requestStream()));
-      return resp.fileId.toInt();
+      return resp.fileId;
     } on GrpcError catch (e) {
       Logs().e('ChatRemoteDataSource: ошибка gRPC в uploadFile', e);
       throwGrpcError(e, 'Ошибка загрузки файла');
@@ -718,14 +718,14 @@ class ChatRemoteDataSource implements IChatRemoteDataSource {
   }
 
   @override
-  Future<int> uploadGroupPhoto(int groupId, int fileId) async {
+  Future<String> uploadGroupPhoto(int groupId, String fileId) async {
     try {
       final req = chatpb.UploadGroupPhotoRequest(
         groupId: Int64(groupId),
-        fileId: Int64(fileId),
+        fileId: fileId,
       );
       final resp = await _authGuard.execute(() => _client.uploadGroupPhoto(req));
-      return resp.avatarFileId.toInt();
+      return resp.photoId;
     } on GrpcError catch (e) {
       Logs().e('ChatRemoteDataSource: ошибка uploadGroupPhoto', e);
       throwGrpcError(e, 'Ошибка загрузки фото группы');
@@ -803,17 +803,20 @@ class ChatRemoteDataSource implements IChatRemoteDataSource {
       final resp = await _authGuard.execute(() => _client.searchPublicGroups(req));
       final items = resp.items
           .map(
-            (e) => OvertGroupListing(
+            (e) {
+              final av = e.avatar.trim();
+              return OvertGroupListing(
               id: e.id.toInt(),
               type: e.type,
               name: e.name,
-              avatarUrl: e.avatar,
+              photoId: looksLikeStorageFileId(av) ? av : null,
               description: e.description,
               memberCount: e.memberCount,
               maxNum: e.maxNum,
               createdAtSec: e.createdAt.toInt(),
               isMember: e.isMember,
-            ),
+            );
+            },
           )
           .toList();
       return (items: items, hasMore: resp.hasMore);
